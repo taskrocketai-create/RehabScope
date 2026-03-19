@@ -872,7 +872,6 @@ Return this exact JSON (keep responses brief to fit in token limit):
 // ── RENDER REPORT ──────────────────────────────
 function renderReport(r, m) {
   const s = r.summary || {};
-  // Calculate deterministic score
   const dealScore = calculateDealScore(r, m, window.lastFormData || {});
   const riskColor = { Low:'sv-green', Medium:'sv-amber', High:'sv-red', Critical:'sv-red' };
 
@@ -880,217 +879,249 @@ function renderReport(r, m) {
   document.getElementById('rpt-title').textContent = 'RehabScope™ — ' + (m.address || 'Property Review');
   document.getElementById('rpt-meta').textContent  = [m.client, m.type, m.sqft ? m.sqft+' sq ft' : '', m.pkg, new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})].filter(Boolean).join(' · ');
 
-  // Scores
-  document.getElementById('score-grid').innerHTML = `
-    <div class="score-card" style="border:2px solid ${dealScore.color};background:${dealScore.bg};">
-      <div style="font-size:2.8rem;font-weight:900;color:${dealScore.color};line-height:1;">${dealScore.score}</div>
-      <div style="font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:${dealScore.color};margin-top:2px;">Deal Score</div>
-      <div style="font-size:1.4rem;font-weight:900;color:${dealScore.color};letter-spacing:-0.02em;">${dealScore.grade}</div>
-    </div>
-    <div class="score-card"><div class="score-val sv-white">${s.contractorBid||'—'}</div><div class="score-lbl">Contractor Bid</div></div>
-    <div class="score-card"><div class="score-val sv-amber">${s.estimatedRealisticBudget||'—'}</div><div class="score-lbl">Realistic Budget</div></div>
-    <div class="score-card"><div class="score-val sv-red">${s.missingItemsCount??'—'}</div><div class="score-lbl">Missing Items</div></div>`;
+  // Score grid - shows deal score prominently
+  document.getElementById('score-grid').innerHTML =
+    '<div class="score-card" style="border:2px solid ' + dealScore.color + ';background:' + dealScore.bg + ';">' +
+      '<div style="font-size:2.4rem;font-weight:900;color:' + dealScore.color + ';line-height:1;">' + dealScore.score + '</div>' +
+      '<div style="font-size:0.58rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:' + dealScore.color + ';margin-top:2px;">Deal Score</div>' +
+      '<div style="font-size:1.2rem;font-weight:900;color:' + dealScore.color + ';">' + dealScore.grade + '</div>' +
+    '</div>' +
+    '<div class="score-card"><div class="score-val sv-white">' + (s.contractorBid||'—') + '</div><div class="score-lbl">Contractor Bid</div></div>' +
+    '<div class="score-card"><div class="score-val sv-amber">' + (s.estimatedRealisticBudget||'—') + '</div><div class="score-lbl">Realistic Budget</div></div>' +
+    '<div class="score-card"><div class="score-val sv-red">' + (s.missingItemsCount != null ? s.missingItemsCount : '—') + '</div><div class="score-lbl">Missing Items</div></div>';
 
-  // Add score breakdown section below header
-  const existingBreakdown = document.getElementById('score-breakdown');
-  if (existingBreakdown) existingBreakdown.remove();
-  const breakdownEl = document.createElement('div');
-  breakdownEl.id = 'score-breakdown';
-  breakdownEl.className = 'sec-card fade';
-  // Build score breakdown HTML without nested template literals
+  const secs = document.getElementById('sections');
+  secs.innerHTML = '';
+
+  // ── SCORE BREAKDOWN ──
   function buildBreakdownRow(b) {
     const pct = Math.round(b.result / b.maxPts * 100);
-    const c = b.result < b.maxPts * 0.5 ? 'var(--red)' : b.result < b.maxPts * 0.8 ? 'var(--amber-dk)' : 'var(--green)';
+    const c  = b.result < b.maxPts * 0.5 ? 'var(--red)' : b.result < b.maxPts * 0.8 ? 'var(--amber-dk)' : 'var(--green)';
     const bc = b.result < b.maxPts * 0.5 ? 'var(--red)' : b.result < b.maxPts * 0.8 ? 'var(--amber)' : 'var(--green)';
     return '<div style="background:var(--gray-lt);border-radius:8px;padding:0.85rem;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">' +
       '<span style="font-size:0.75rem;font-weight:800;color:var(--slate);">' + b.category + '</span>' +
       '<span style="font-size:0.9rem;font-weight:900;color:' + c + ';">' + b.result + '/' + b.maxPts + '</span>' +
-      '</div>' +
-      '<div style="background:#E5E7EB;border-radius:100px;height:6px;overflow:hidden;">' +
-      '<div style="height:100%;width:' + pct + '%;background:' + bc + ';border-radius:100px;"></div>' +
-      '</div></div>';
+      '</div><div style="background:#E5E7EB;border-radius:100px;height:6px;overflow:hidden;">' +
+      '<div style="height:100%;width:' + pct + '%;background:' + bc + ';border-radius:100px;"></div></div></div>';
   }
-  function buildDeductionRow(d) {
-    return '<div style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.82rem;font-weight:600;color:var(--red);padding:0.3rem 0;border-bottom:1px solid var(--border);">' +
-      '<span style="flex-shrink:0;margin-top:2px;">▼</span>' + d + '</div>';
-  }
-  const breakdownRows  = dealScore.breakdown.map(buildBreakdownRow).join('');
-  const deductionRows  = dealScore.deductions.map(buildDeductionRow).join('');
-  const deductionBlock = dealScore.deductions.length
-    ? '<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--gray);margin-bottom:0.5rem;">Score Deductions</div>' + deductionRows
+  const deductionHTML = dealScore.deductions.length
+    ? '<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--gray);margin:1rem 0 0.5rem;">Score Deductions</div>' +
+      dealScore.deductions.map(d => '<div style="display:flex;gap:0.5rem;font-size:0.82rem;font-weight:600;color:var(--red);padding:0.3rem 0;border-bottom:1px solid var(--border);"><span style="flex-shrink:0;">▼</span>' + d + '</div>').join('')
     : '<div style="color:var(--green);font-weight:700;font-size:0.88rem;">✓ No significant deductions</div>';
 
-  breakdownEl.innerHTML =
+  const scoreDisclaimer = '<div style="margin-top:1rem;padding:0.9rem 1rem;background:var(--gray-lt);border:1px solid var(--border);border-left:3px solid #94A3B8;border-radius:0 6px 6px 0;font-size:0.72rem;font-weight:600;color:var(--gray);line-height:1.6;">' +
+    '<strong style="color:var(--slate);display:block;margin-bottom:0.25rem;">⚖ Score Disclaimer</strong>' +
+    'The RehabScope™ Deal Score is a visual reference tool only. It does not constitute a credit decision, loan approval or denial, or investment recommendation. Scores below 70 indicate additional inspections, documentation, or contractor bids should be obtained. RehabScope™ expressly disclaims all liability for decisions made based on this score.' +
+    '</div>';
+
+  const scoreEl = document.createElement('div');
+  scoreEl.className = 'sec-card fade';
+  scoreEl.innerHTML =
     '<div class="sec-head" onclick="toggle(this)">' +
       '<div class="sec-icon" style="background:' + dealScore.bg + ';color:' + dealScore.color + ';">' +
         '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>' +
       '</div>' +
-      '<span class="sec-title">RehabScope™ Deal Score — ' + dealScore.score + '/100 (' + dealScore.grade + ')</span>' +
+      '<span class="sec-title">Deal Score — ' + dealScore.score + '/100 (' + dealScore.grade + ')</span>' +
       '<span class="sec-badge" style="background:' + dealScore.bg + ';color:' + dealScore.color + ';">' + dealScore.recommendation.split('—')[0].trim() + '</span>' +
       '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
     '</div>' +
     '<div class="sec-body open">' +
-      '<div style="background:' + dealScore.bg + ';border:1.5px solid ' + dealScore.color + ';border-radius:10px;padding:1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.5rem;">' +
-        '<div style="text-align:center;flex-shrink:0;">' +
-          '<div style="font-size:3rem;font-weight:900;color:' + dealScore.color + ';line-height:1;">' + dealScore.score + '</div>' +
-          '<div style="font-size:1.8rem;font-weight:900;color:' + dealScore.color + ';">' + dealScore.grade + '</div>' +
-          '<div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:' + dealScore.color + ';">Deal Score</div>' +
+      '<div style="background:' + dealScore.bg + ';border:1.5px solid ' + dealScore.color + ';border-radius:10px;padding:1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.25rem;">' +
+        '<div style="text-align:center;flex-shrink:0;min-width:70px;">' +
+          '<div style="font-size:2.8rem;font-weight:900;color:' + dealScore.color + ';line-height:1;">' + dealScore.score + '</div>' +
+          '<div style="font-size:1.4rem;font-weight:900;color:' + dealScore.color + ';">' + dealScore.grade + '</div>' +
         '</div>' +
-        '<div>' +
-          '<div style="font-size:1rem;font-weight:900;color:' + dealScore.color + ';margin-bottom:0.5rem;">' + dealScore.recommendation + '</div>' +
-          '<div style="font-size:0.82rem;font-weight:600;color:var(--gray);">Score is calculated from budget gap, scope completeness, systems condition, deal math, and timeline risk. Not AI-generated — fully deterministic.</div>' +
+        '<div><div style="font-size:0.95rem;font-weight:900;color:' + dealScore.color + ';margin-bottom:0.35rem;">' + dealScore.recommendation + '</div>' +
+        '<div style="font-size:0.78rem;font-weight:600;color:var(--gray);">Calculated from budget gap, scope completeness, systems condition, deal math, and timeline risk.</div></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.5rem;">' + dealScore.breakdown.map(buildBreakdownRow).join('') + '</div>' +
+      deductionHTML + scoreDisclaimer +
+    '</div>';
+  secs.appendChild(scoreEl);
+
+  // ── EXECUTIVE SUMMARY ──
+  const sumEl = document.createElement('div');
+  sumEl.className = 'sec-card fade';
+  const riskC = { Low:'var(--green)', Medium:'var(--amber-dk)', High:'var(--red)', Critical:'var(--red)' }[s.riskLevel] || 'var(--slate)';
+  sumEl.innerHTML =
+    '<div class="sec-head" onclick="toggle(this)">' +
+      '<div class="sec-icon" style="background:rgba(232,160,32,0.12);color:var(--amber);">' +
+        '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' +
+      '</div>' +
+      '<span class="sec-title">Executive Summary</span>' +
+      '<span class="sec-badge bd-amber">' + (s.riskLevel||'') + ' Risk</span>' +
+      '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+    '</div>' +
+    '<div class="sec-body open">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem;">' +
+        '<div style="background:var(--gray-lt);border-radius:8px;padding:1rem;">' +
+          '<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--gray);margin-bottom:0.35rem;">Contractor Bid</div>' +
+          '<div style="font-size:1.35rem;font-weight:900;color:var(--black);">' + (s.contractorBid||'—') + '</div>' +
+        '</div>' +
+        '<div style="background:rgba(232,160,32,0.08);border:1.5px solid rgba(232,160,32,0.3);border-radius:8px;padding:1rem;">' +
+          '<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--amber-dk);margin-bottom:0.35rem;">Realistic Budget</div>' +
+          '<div style="font-size:1.2rem;font-weight:900;color:var(--amber-dk);">' + (s.estimatedRealisticBudget||'—') + '</div>' +
+        '</div>' +
+        '<div style="background:var(--red-lt);border:1.5px solid #FADBD8;border-radius:8px;padding:1rem;">' +
+          '<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);margin-bottom:0.35rem;">Budget Gap</div>' +
+          '<div style="font-size:1.2rem;font-weight:900;color:var(--red);">' + (s.budgetVariance||'—') + '</div>' +
+        '</div>' +
+        '<div style="background:' + dealScore.bg + ';border:1.5px solid ' + dealScore.color + ';border-radius:8px;padding:1rem;">' +
+          '<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:' + dealScore.color + ';margin-bottom:0.35rem;">Overall Risk</div>' +
+          '<div style="font-size:1.35rem;font-weight:900;color:' + riskC + ';">' + (s.riskLevel||'—') + '</div>' +
         '</div>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">' + breakdownRows + '</div>' +
-      deductionBlock +
-      '<div style="margin-top:1.25rem;padding:1rem;background:#F8F9FA;border:1.5px solid #E5E7EB;border-radius:8px;border-left:4px solid #94A3B8;">' +
-        '<div style="font-size:0.68rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:0.5rem;">⚖ Score Disclaimer & Limitation of Liability</div>' +
-        '<div style="font-size:0.75rem;font-weight:600;color:#6B7280;line-height:1.65;">' +
-          'The RehabScope™ Deal Score is provided solely as a visual reference tool to assist reviewers in identifying areas that may require additional documentation, inspections, or due diligence prior to lending or investment decisions. ' +
-          'This score does <strong>not</strong> constitute a credit decision, loan approval, denial, investment recommendation, or guarantee of any kind. ' +
-          'The score is not a substitute for a full underwriting review, professional property inspection, licensed contractor estimate, legal counsel, or any other due diligence required by applicable law or lending guidelines. ' +
-          '<br/><br/>' +
-          'RehabScope™ and its principals, affiliates, employees, and agents expressly disclaim all liability for any lending decisions, investment outcomes, financial losses, or legal claims arising from reliance on this score or any content contained in this report. ' +
-          'This report is prepared for informational purposes only and is not intended to be used as the sole basis for any financial or legal decision. ' +
-          'All scope estimates, cost projections, and market comparisons are based on professional judgment and available market data at the time of review and are subject to change. ' +
-          'Scores below 70 may indicate that a more detailed scope of work, additional contractor bids, further property inspections, environmental assessments, or supplemental documentation should be obtained before proceeding.' +
-        '</div>' +
+      '<div style="background:var(--slate);border-radius:8px;padding:1rem;">' +
+        '<div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#94A3B8;margin-bottom:0.35rem;">Verdict</div>' +
+        '<div style="font-size:0.92rem;font-weight:700;color:var(--white);line-height:1.6;">' + (s.overallVerdict||'—') + '</div>' +
       '</div>' +
     '</div>';
+  secs.appendChild(sumEl);
 
-  document.getElementById('sections').insertAdjacentElement('afterbegin', breakdownEl);
-
-  const secs = document.getElementById('sections');
-  secs.innerHTML = '';
-
-  // ── Summary ──
-  secs.innerHTML += `
-    <div class="sec-card fade">
-      <div class="sec-head" onclick="toggle(this)">
-        <div class="sec-icon" style="background:rgba(232,160,32,0.12);color:var(--amber);">
-          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        </div>
-        <span class="sec-title">Executive Summary</span>
-        <span class="sec-badge bd-amber">${s.riskLevel||''} Risk</span>
-        <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-      </div>
-      <div class="sec-body open">
-        <div class="sum-box">
-          <div class="sum-row"><span class="sum-lbl">Contractor's Bid</span><span class="sum-val">${s.contractorBid||'—'}</span></div>
-          <div class="sum-row"><span class="sum-lbl">Realistic Budget Estimate</span><span class="sum-val amber">${s.estimatedRealisticBudget||'—'}</span></div>
-          <div class="sum-row"><span class="sum-lbl">Budget Variance</span><span class="sum-val red">${s.budgetVariance||'—'}</span></div>
-          <div class="sum-row"><span class="sum-lbl">Missing Items Found</span><span class="sum-val red">${s.missingItemsCount??'—'}</span></div>
-          <div class="sum-row"><span class="sum-lbl">Overpriced Items</span><span class="sum-val amber">${s.overPricedItemsCount??'—'}</span></div>
-          <div class="sum-row"><span class="sum-lbl">Underpriced Items</span><span class="sum-val">${s.underPricedItemsCount??'—'}</span></div>
-        </div>
-        <div class="verdict-box"><strong>Verdict:</strong> ${s.overallVerdict||'—'}</div>
-      </div>
-    </div>`;
-
-  // ── Line Items ──
+  // ── LINE ITEMS — each in its own colored card ──
   if (r.lineItems && r.lineItems.length) {
-    const stColor = st => ({ Reasonable:'bd-green', Overpriced:'bd-red', Underpriced:'bd-amber', Missing:'bd-red' }[st]||'bd-gray');
-    const rows = r.lineItems.map(li => `
-      <tr>
-        <td class="td-item">${li.item}</td>
-        <td class="td-num">${li.bidAmount||'—'}</td>
-        <td class="td-num">${li.marketLow||'—'}</td>
-        <td class="td-num">${li.marketHigh||'—'}</td>
-        <td><span class="st-badge ${stColor(li.status)}">${li.status}</span></td>
-        <td class="td-note">${li.flag||''}</td>
-      </tr>`).join('');
-    secs.innerHTML += `
-      <div class="sec-card fade">
-        <div class="sec-head" onclick="toggle(this)">
-          <div class="sec-icon" style="background:var(--blue-lt);color:var(--blue);">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-          </div>
-          <span class="sec-title">Line Item Price Analysis</span>
-          <span class="sec-badge bd-blue">${r.lineItems.length} items reviewed</span>
-          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        </div>
-        <div class="sec-body open">
-          <table class="li-table">
-            <thead><tr>
-              <th>Line Item</th><th>Bid</th><th>Mkt Low</th><th>Mkt High</th><th>Status</th><th>Notes</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      </div>`;
+    function statusStyle(st) {
+      const map = {
+        Reasonable: { bg:'var(--green-lt)', border:'#B2DFCC', color:'var(--green)',    label:'Reasonable' },
+        Overpriced:  { bg:'var(--red-lt)',   border:'#FADBD8', color:'var(--red)',      label:'Overpriced'  },
+        Underpriced: { bg:'rgba(232,160,32,0.1)', border:'rgba(232,160,32,0.35)', color:'var(--amber-dk)', label:'Underpriced' },
+        Missing:     { bg:'var(--red-lt)',   border:'#FADBD8', color:'var(--red)',      label:'Missing'     }
+      };
+      return map[st] || { bg:'var(--gray-lt)', border:'var(--border)', color:'var(--gray)', label: st||'Unknown' };
+    }
+
+    const liCards = r.lineItems.map((li, i) => {
+      const st = statusStyle(li.status);
+      return '<div style="background:' + st.bg + ';border:1.5px solid ' + st.border + ';border-left:4px solid ' + st.color + ';border-radius:8px;padding:0.9rem 1rem;margin-bottom:0.5rem;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;flex-wrap:wrap;">' +
+          '<div style="font-size:0.9rem;font-weight:800;color:var(--black);flex:1;">' + li.item + '</div>' +
+          '<span style="background:' + st.color + ';color:#fff;border-radius:100px;padding:2px 10px;font-size:0.65rem;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;white-space:nowrap;">' + st.label + '</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:1.5rem;margin-top:0.5rem;flex-wrap:wrap;">' +
+          '<div><span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:var(--gray);">Bid </span><span style="font-size:0.88rem;font-weight:900;color:var(--black);">' + (li.bidAmount||'—') + '</span></div>' +
+          '<div><span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:var(--gray);">Mkt Low </span><span style="font-size:0.88rem;font-weight:700;color:var(--slate);">' + (li.marketLow||'—') + '</span></div>' +
+          '<div><span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:var(--gray);">Mkt High </span><span style="font-size:0.88rem;font-weight:700;color:var(--slate);">' + (li.marketHigh||'—') + '</span></div>' +
+        '</div>' +
+        (li.flag ? '<div style="font-size:0.78rem;font-weight:600;color:' + st.color + ';margin-top:0.4rem;">' + li.flag + '</div>' : '') +
+      '</div>';
+    }).join('');
+
+    const liEl = document.createElement('div');
+    liEl.className = 'sec-card fade';
+    const overpricedCount  = r.lineItems.filter(l => l.status === 'Overpriced').length;
+    const underpricedCount = r.lineItems.filter(l => l.status === 'Underpriced').length;
+    const reasonableCount  = r.lineItems.filter(l => l.status === 'Reasonable').length;
+    liEl.innerHTML =
+      '<div class="sec-head" onclick="toggle(this)">' +
+        '<div class="sec-icon" style="background:var(--blue-lt);color:var(--blue);">' +
+          '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>' +
+        '</div>' +
+        '<span class="sec-title">Line Item Analysis</span>' +
+        '<div style="display:flex;gap:0.4rem;">' +
+          (reasonableCount  ? '<span class="sec-badge bd-green">' + reasonableCount + ' OK</span>' : '') +
+          (underpricedCount ? '<span class="sec-badge bd-amber">' + underpricedCount + ' Under</span>' : '') +
+          (overpricedCount  ? '<span class="sec-badge bd-red">'   + overpricedCount  + ' Over</span>' : '') +
+        '</div>' +
+        '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+      '</div>' +
+      '<div class="sec-body open">' + liCards + '</div>';
+    secs.appendChild(liEl);
   }
 
-  // ── Missing Items ──
+  // ── MISSING ITEMS ──
   if (r.missingItems && r.missingItems.length) {
-    const items = r.missingItems.map(mi => `
-      <div class="miss-item">
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <div>
-          <div class="miss-title">${mi.item} ${mi.estimatedCost ? '<span style="font-weight:600;margin-left:8px;">Est. ' + mi.estimatedCost + '</span>' : ''}</div>
-          <div class="miss-detail">${mi.reason||''}</div>
-        </div>
-      </div>`).join('');
-    secs.innerHTML += `
-      <div class="sec-card fade">
-        <div class="sec-head" onclick="toggle(this)">
-          <div class="sec-icon" style="background:var(--red-lt);color:var(--red);">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <span class="sec-title">Missing Scope Items</span>
-          <span class="sec-badge bd-red">${r.missingItems.length} found</span>
-          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        </div>
-        <div class="sec-body open">${items}</div>
-      </div>`;
+    const missingCards = r.missingItems.map(mi =>
+      '<div style="background:var(--red-lt);border:1.5px solid #FADBD8;border-left:4px solid var(--red);border-radius:8px;padding:0.9rem 1rem;margin-bottom:0.5rem;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;flex-wrap:wrap;">' +
+          '<div style="font-size:0.9rem;font-weight:800;color:#7B241C;">' + mi.item + '</div>' +
+          '<span style="font-size:0.88rem;font-weight:900;color:var(--red);white-space:nowrap;">' + (mi.estimatedCost||'') + '</span>' +
+        '</div>' +
+        '<div style="font-size:0.8rem;font-weight:600;color:#922B21;margin-top:0.35rem;">' + (mi.reason||'') + '</div>' +
+      '</div>'
+    ).join('');
+
+    const miEl = document.createElement('div');
+    miEl.className = 'sec-card fade';
+    miEl.innerHTML =
+      '<div class="sec-head" onclick="toggle(this)">' +
+        '<div class="sec-icon" style="background:var(--red-lt);color:var(--red);">' +
+          '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '</div>' +
+        '<span class="sec-title">Missing Scope Items</span>' +
+        '<span class="sec-badge bd-red">' + r.missingItems.length + ' found</span>' +
+        '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+      '</div>' +
+      '<div class="sec-body open">' + missingCards + '</div>';
+    secs.appendChild(miEl);
   }
 
-  // ── Sequencing Issues ──
+  // ── SEQUENCING ISSUES ──
   if (r.sequencingIssues && r.sequencingIssues.length) {
-    const items = r.sequencingIssues.map(si => `
-      <div class="seq-item">
-        <div class="seq-issue">${si.issue}</div>
-        <div class="seq-impact">${si.impact||''}</div>
-      </div>`).join('');
-    secs.innerHTML += `
-      <div class="sec-card fade">
-        <div class="sec-head" onclick="toggle(this)">
-          <div class="sec-icon" style="background:rgba(232,160,32,0.12);color:var(--amber-dk);">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-          </div>
-          <span class="sec-title">Sequencing Issues</span>
-          <span class="sec-badge bd-amber">${r.sequencingIssues.length} found</span>
-          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        </div>
-        <div class="sec-body open">${items}</div>
-      </div>`;
+    const seqCards = r.sequencingIssues.map(si =>
+      '<div style="background:rgba(232,160,32,0.08);border:1.5px solid rgba(232,160,32,0.3);border-left:4px solid var(--amber);border-radius:8px;padding:0.9rem 1rem;margin-bottom:0.5rem;">' +
+        '<div style="font-size:0.9rem;font-weight:800;color:var(--black);">' + si.issue + '</div>' +
+        '<div style="font-size:0.8rem;font-weight:600;color:var(--amber-dk);margin-top:0.35rem;">' + (si.impact||'') + '</div>' +
+      '</div>'
+    ).join('');
+
+    const seqEl = document.createElement('div');
+    seqEl.className = 'sec-card fade';
+    seqEl.innerHTML =
+      '<div class="sec-head" onclick="toggle(this)">' +
+        '<div class="sec-icon" style="background:rgba(232,160,32,0.12);color:var(--amber-dk);">' +
+          '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>' +
+        '</div>' +
+        '<span class="sec-title">Sequencing Issues</span>' +
+        '<span class="sec-badge bd-amber">' + r.sequencingIssues.length + ' found</span>' +
+        '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+      '</div>' +
+      '<div class="sec-body open">' + seqCards + '</div>';
+    secs.appendChild(seqEl);
   }
 
-  // ── Recommendations ──
+  // ── RECOMMENDATIONS ──
   if (r.recommendations && r.recommendations.length) {
-    const items = r.recommendations.map((rec,i) => `
-      <div class="rec-item ${(rec.priority||'low').toLowerCase()}">
-        <div class="rec-num">${i+1}</div>
-        <div>
-          <div class="rec-text">${rec.recommendation}</div>
-          <div class="rec-why">${rec.why||''}</div>
-        </div>
-      </div>`).join('');
-    secs.innerHTML += `
-      <div class="sec-card fade">
-        <div class="sec-head" onclick="toggle(this)">
-          <div class="sec-icon" style="background:var(--green-lt);color:var(--green);">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          </div>
-          <span class="sec-title">Recommendations</span>
-          <span class="sec-badge bd-green">${r.recommendations.length} actions</span>
-          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        </div>
-        <div class="sec-body open">${items}</div>
-      </div>`;
+    function recStyle(p) {
+      const map = {
+        High:   { bg:'var(--red-lt)',   border:'#FADBD8', lborder:'var(--red)',   color:'var(--red)'   },
+        Medium: { bg:'rgba(232,160,32,0.08)', border:'rgba(232,160,32,0.3)', lborder:'var(--amber)', color:'var(--amber-dk)' },
+        Low:    { bg:'var(--green-lt)', border:'#B2DFCC', lborder:'var(--green)', color:'var(--green)' }
+      };
+      return map[p] || map.Low;
+    }
+    const recCards = r.recommendations.map((rec, i) => {
+      const st = recStyle(rec.priority);
+      return '<div style="background:' + st.bg + ';border:1.5px solid ' + st.border + ';border-left:4px solid ' + st.lborder + ';border-radius:8px;padding:0.9rem 1rem;margin-bottom:0.5rem;display:flex;gap:0.75rem;">' +
+        '<div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:' + st.lborder + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:900;">' + (i+1) + '</div>' +
+        '<div>' +
+          '<div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:' + st.color + ';margin-bottom:0.25rem;">' + (rec.priority||'') + ' Priority</div>' +
+          '<div style="font-size:0.9rem;font-weight:800;color:var(--black);">' + rec.recommendation + '</div>' +
+          (rec.why ? '<div style="font-size:0.78rem;font-weight:600;color:var(--gray);margin-top:0.25rem;">' + rec.why + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    const highCount = r.recommendations.filter(r => r.priority === 'High').length;
+    const recEl = document.createElement('div');
+    recEl.className = 'sec-card fade';
+    recEl.innerHTML =
+      '<div class="sec-head" onclick="toggle(this)">' +
+        '<div class="sec-icon" style="background:var(--green-lt);color:var(--green);">' +
+          '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+        '</div>' +
+        '<span class="sec-title">Recommendations</span>' +
+        '<div style="display:flex;gap:0.4rem;">' +
+          (highCount ? '<span class="sec-badge bd-red">' + highCount + ' urgent</span>' : '') +
+          '<span class="sec-badge bd-green">' + r.recommendations.length + ' total</span>' +
+        '</div>' +
+        '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+      '</div>' +
+      '<div class="sec-body open">' + recCards + '</div>';
+    secs.appendChild(recEl);
   }
 
-  // Narrative
+  // ── NARRATIVE ──
   document.getElementById('narrative').textContent = r.narrative || '';
 
   document.getElementById('report-area').style.display = 'block';
@@ -1098,7 +1129,6 @@ function renderReport(r, m) {
   document.getElementById('report-area').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
-// ── GENERATE CLIENT REPORT ─────────────────────
 function generateReport() {
   const btn = document.getElementById('approve-btn');
   btn.disabled = true;
