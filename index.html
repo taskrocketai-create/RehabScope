@@ -53,15 +53,20 @@
 
     /* LAYOUT */
     .app {
-      max-width: 1280px; margin: 0 auto; padding: 2rem;
-      display: grid; grid-template-columns: 400px 1fr; gap: 1.5rem; align-items: start;
+      max-width: 1300px; margin: 0 auto; padding: 2rem;
+      display: grid; grid-template-columns: 480px 1fr; gap: 2rem; align-items: start;
     }
 
     /* INPUT PANEL */
     .input-panel {
       background: var(--white); border: 1.5px solid var(--border);
-      border-radius: 14px; padding: 1.75rem;
+      border-radius: 14px; padding: 1.5rem;
       position: sticky; top: 76px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      width: 100%;
+      box-sizing: border-box;
     }
     .panel-title { font-weight: 900; font-size: 1rem; color: var(--black); margin-bottom: 0.25rem; }
     .panel-sub   { font-size: 0.8rem; font-weight: 600; color: var(--gray); margin-bottom: 1.5rem; }
@@ -70,16 +75,19 @@
     .fg { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; }
     .fg label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--slate); }
     .fg input, .fg select, .fg textarea {
-      font-family: var(--font); font-size: 0.9rem; font-weight: 600;
-      padding: 0.7rem 0.9rem; border: 1.5px solid var(--border);
+      font-family: var(--font); font-size: 0.85rem; font-weight: 600;
+      padding: 0.6rem 0.75rem; border: 1.5px solid var(--border);
       border-radius: 8px; background: var(--cream); color: var(--black); outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%; box-sizing: border-box; display: block;
     }
     .fg input:focus, .fg select:focus, .fg textarea:focus {
       border-color: var(--amber); box-shadow: 0 0 0 3px rgba(232,160,32,0.12);
     }
     .fg textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
-    .fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; min-width: 0; width: 100%; }
+    .fg-row .fg { min-width: 0; width: 100%; }
+    .fg { width: 100%; }
 
     /* FILE DROP */
     .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 1.25rem; text-align: center; position: relative; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 0.9rem; }
@@ -512,17 +520,17 @@
     <!-- SECTION 4: KNOWN ISSUES -->
     <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--amber);margin:1rem 0 0.75rem;padding-bottom:0.4rem;border-bottom:2px solid var(--amber);">4. Known Issues (check all that apply)</div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:1rem;">
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-mold" style="width:16px;height:16px;accent-color:var(--amber);"> Mold / moisture issues</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-termite" style="width:16px;height:16px;accent-color:var(--amber);"> Termite / pest damage</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-asbestos" style="width:16px;height:16px;accent-color:var(--amber);"> Possible asbestos</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-lead" style="width:16px;height:16px;accent-color:var(--amber);"> Lead paint (pre-1978)</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-water" style="width:16px;height:16px;accent-color:var(--amber);"> Water damage / flooding</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-fire" style="width:16px;height:16px;accent-color:var(--amber);"> Fire / smoke damage</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-permit" style="width:16px;height:16px;accent-color:var(--amber);"> Unpermitted work</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-crawl" style="width:16px;height:16px;accent-color:var(--amber);"> Crawl space not inspected</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-windows" style="width:16px;height:16px;accent-color:var(--amber);"> Original windows</label>
-      <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:700;color:var(--slate);cursor:pointer;"><input type="checkbox" id="ki-septic" style="width:16px;height:16px;accent-color:var(--amber);"> Septic system</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;min-width:0;">
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-mold" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Mold / moisture</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-termite" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Termite / pest</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-asbestos" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Possible asbestos</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-lead" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Lead paint</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-water" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Water damage</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-fire" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Fire / smoke</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-permit" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Unpermitted work</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-crawl" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Crawl space uninspected</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-windows" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Original windows</label>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;font-weight:700;color:var(--slate);cursor:pointer;min-width:0;"><input type="checkbox" id="ki-septic" style="width:14px;height:14px;accent-color:var(--amber);flex-shrink:0;"> Septic system</label>
     </div>
 
     <!-- SECTION 5: CONTRACTOR SCOPE -->
