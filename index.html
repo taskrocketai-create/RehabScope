@@ -820,42 +820,50 @@ Return this exact JSON (keep responses brief to fit in token limit):
 
     let report;
     try {
-      // Step 1: Strip markdown code fences (```json ... ``` or ``` ... ```)
+      // Clean up the raw response
       let jsonStr = raw.trim();
-      jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```\s*/i, '');
-      jsonStr = jsonStr.replace(/\s*```\s*$/i, '');
+
+      // Remove markdown fences using indexOf instead of regex
+      if (jsonStr.indexOf('\`\`\`json') === 0) {
+        jsonStr = jsonStr.slice(7); // remove ```json
+      } else if (jsonStr.indexOf('\`\`\`') === 0) {
+        jsonStr = jsonStr.slice(3); // remove ```
+      }
+      const lastFence = jsonStr.lastIndexOf('\`\`\`');
+      if (lastFence > 0) {
+        jsonStr = jsonStr.slice(0, lastFence);
+      }
       jsonStr = jsonStr.trim();
 
-      // Step 2: Extract outermost JSON object
+      // Find the outermost JSON object { ... }
       const firstBrace = jsonStr.indexOf('{');
       const lastBrace  = jsonStr.lastIndexOf('}');
       if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
         jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
       }
 
-      // Step 3: Parse
+      // Parse it
       report = JSON.parse(jsonStr);
-      console.log('JSON parsed OK. Keys:', Object.keys(report));
+      console.log('JSON parsed OK, keys:', Object.keys(report));
 
     } catch(parseErr) {
-      console.log('JSON parse failed:', parseErr.message);
-      console.log('Raw (first 300):', raw.slice(0, 300));
+      console.log('JSON parse failed:', parseErr.message, '| Raw preview:', raw.slice(0, 200));
+      // Show raw in narrative so user can see what came back
       report = {
         summary: {
           contractorBid: bid,
-          estimatedRealisticBudget: 'See narrative below',
-          budgetVariance: 'See narrative',
+          estimatedRealisticBudget: 'Parse error - see narrative',
+          budgetVariance: '—',
           riskLevel: 'Medium',
-          missingItemsCount: '?',
-          overPricedItemsCount: '?',
-          underPricedItemsCount: '?',
-          overallVerdict: 'Analysis complete — see full narrative below.'
+          missingItemsCount: 0,
+          overPricedItemsCount: 0,
+          underPricedItemsCount: 0,
+          overallVerdict: 'JSON parse failed. Raw response shown in narrative below.'
         },
         lineItems: [], missingItems: [], recommendations: [], sequencingIssues: [],
-        narrative: raw
+        narrative: 'PARSE ERROR: ' + parseErr.message + '\n\nRAW RESPONSE:\n' + raw.slice(0, 2000)
       };
     }
-
     lastReport = report;
     renderReport(report, lastMeta);
 
@@ -1373,7 +1381,7 @@ th{background:#2C3A4A;color:#fff;font-size:11px;font-weight:700;letter-spacing:0
       <div style="font-size:11px;color:#6B7280;margin-top:3px;">taskrocketai@gmail.com</div>
     </div>
     <div style="font-size:10px;color:#9CA3AF;text-align:right;max-width:320px;line-height:1.6;">
-      &#169; ${new Date().getFullYear()} RehabScope&#8482;. All rights reserved. Prepared for the exclusive use of the named client. Unauthorized reproduction or distribution is prohibited.
+      &#169; 2026 RehabScope&#8482;. All rights reserved. Prepared for the exclusive use of the named client. Unauthorized reproduction or distribution is prohibited.
     </div>
   </div>
 
