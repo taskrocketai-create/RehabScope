@@ -794,28 +794,17 @@ Return this exact JSON (keep responses brief to fit in token limit):
     });
 
     const data = await res.json();
-    console.log('Response keys:', Object.keys(data));
 
-    // Handle API errors
     if (data.error) {
-      const errMsg = data.error.message || JSON.stringify(data.error);
-      document.getElementById('debug-text').textContent = 'API ERROR: ' + errMsg;
-      document.getElementById('debug-box').style.display = 'block';
-      throw new Error('API Error: ' + errMsg);
+      throw new Error('API Error: ' + (data.error.message || JSON.stringify(data.error)));
     }
 
-    // Extract text content from Anthropic message format
     let raw = '';
     if (data.content && Array.isArray(data.content)) {
       raw = data.content.filter(c => c.type === 'text').map(c => c.text || '').join('');
-    } else if (typeof data.text === 'string') {
-      raw = data.text;
     }
 
-    console.log('Raw length:', raw.length, 'Preview:', raw.slice(0, 100));
-
-    // Show debug box
-    document.getElementById('debug-text').textContent = 'LENGTH: ' + raw.length + '\n\nFIRST 500 CHARS:\n' + raw.slice(0, 500) + '\n\nLAST 200 CHARS:\n' + raw.slice(-200);
+    document.getElementById('debug-text').textContent = 'LENGTH: ' + raw.length + '\n\nFIRST 300:\n' + raw.slice(0, 300);
     document.getElementById('debug-box').style.display = 'block';
 
     let report;
