@@ -1,4 +1,3 @@
-
 const https = require('https');
 
 module.exports = async function(req, res) {
@@ -6,20 +5,16 @@ module.exports = async function(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: { message: 'Method not allowed' } });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: { message: 'API key not configured' } });
-  }
+  if (!apiKey) return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY not configured in Vercel' } });
 
-  const body = req.body;
+  let body;
+  try { body = req.body; } 
+  catch(e) { return res.status(400).json({ error: { message: 'Bad request body' } }); }
+
   const payload = JSON.stringify({
     model:      'claude-sonnet-4-6',
     max_tokens: 4000,
@@ -40,25 +35,32 @@ module.exports = async function(req, res) {
     };
 
     let data = '';
-
     const request = https.request(options, (response) => {
       response.setEncoding('utf8');
       response.on('data', chunk => { data += chunk; });
       response.on('end', () => {
         console.log('Status:', response.statusCode, 'Length:', data.length);
+        console.log('Preview:', data.slice(0, 200));
         try {
           const parsed = JSON.parse(data);
           res.status(response.statusCode).json(parsed);
         } catch(e) {
-          res.status(500).json({ error: { message: 'Failed to parse API response: ' + data.slice(0,200) } });
+          res.status(200).json({
+            content: [{ text: 'DEBUG_RAW:' + data.slice(0, 1000) }]
+          });
         }
         resolve();
       });
     });
 
     request.on('error', (err) => {
-      console.log('Error:', err.message);
-      res.status(500).json({ error: { message: err.message } });
+      res.status(500).json({ error: { message: 'Request error: ' + err.message } });
+      resolve();
+    });
+
+    request.setTimeout(55000, () => {
+      request.destroy();
+      res.status(504).json({ error: { message: 'Timed out after 55s' } });
       resolve();
     });
 
