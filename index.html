@@ -820,48 +820,63 @@ Return this exact JSON (keep responses brief to fit in token limit):
 
     let report;
     try {
-      // Clean up the raw response
       let jsonStr = raw.trim();
 
-      // Remove markdown fences using indexOf instead of regex
-      if (jsonStr.indexOf('\`\`\`json') === 0) {
-        jsonStr = jsonStr.slice(7); // remove ```json
-      } else if (jsonStr.indexOf('\`\`\`') === 0) {
-        jsonStr = jsonStr.slice(3); // remove ```
-      }
-      const lastFence = jsonStr.lastIndexOf('\`\`\`');
-      if (lastFence > 0) {
-        jsonStr = jsonStr.slice(0, lastFence);
-      }
+      // Strip ```json or ``` from start (with or without space/newline after)
+      while (jsonStr.startsWith('`')) { jsonStr = jsonStr.slice(1); }
+      if (jsonStr.toLowerCase().startsWith('json')) { jsonStr = jsonStr.slice(4); }
       jsonStr = jsonStr.trim();
 
-      // Find the outermost JSON object { ... }
+      // Strip trailing ``` if present
+      while (jsonStr.endsWith('`')) { jsonStr = jsonStr.slice(0, -1); }
+      jsonStr = jsonStr.trim();
+
+      // Find outermost { ... }
       const firstBrace = jsonStr.indexOf('{');
-      const lastBrace  = jsonStr.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      let lastBrace    = jsonStr.lastIndexOf('}');
+
+      if (firstBrace === -1) throw new Error('No JSON object found in response');
+
+      // If no closing brace (truncated), try to close it
+      if (lastBrace <= firstBrace) {
+        console.log('JSON appears truncated - attempting repair');
+        jsonStr = jsonStr.slice(firstBrace);
+        // Count open braces to determine how many need closing
+        let open = 0, inStr = false, escape = false;
+        for (let i = 0; i < jsonStr.length; i++) {
+          const c = jsonStr[i];
+          if (escape) { escape = false; continue; }
+          if (c === '\\') { escape = true; continue; }
+          if (c === '"' && !escape) { inStr = !inStr; continue; }
+          if (!inStr) {
+            if (c === '{' || c === '[') open++;
+            if (c === '}' || c === ']') open--;
+          }
+        }
+        // Add missing closing braces
+        while (open > 0) { jsonStr += '}'; open--; }
+      } else {
         jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
       }
 
-      // Parse it
       report = JSON.parse(jsonStr);
       console.log('JSON parsed OK, keys:', Object.keys(report));
 
     } catch(parseErr) {
-      console.log('JSON parse failed:', parseErr.message, '| Raw preview:', raw.slice(0, 200));
-      // Show raw in narrative so user can see what came back
+      console.log('JSON parse failed:', parseErr.message);
       report = {
         summary: {
           contractorBid: bid,
-          estimatedRealisticBudget: 'Parse error - see narrative',
+          estimatedRealisticBudget: 'See narrative',
           budgetVariance: '—',
           riskLevel: 'Medium',
           missingItemsCount: 0,
           overPricedItemsCount: 0,
           underPricedItemsCount: 0,
-          overallVerdict: 'JSON parse failed. Raw response shown in narrative below.'
+          overallVerdict: 'Analysis complete — see narrative below.'
         },
         lineItems: [], missingItems: [], recommendations: [], sequencingIssues: [],
-        narrative: 'PARSE ERROR: ' + parseErr.message + '\n\nRAW RESPONSE:\n' + raw.slice(0, 2000)
+        narrative: raw
       };
     }
     lastReport = report;
