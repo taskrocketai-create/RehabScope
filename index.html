@@ -745,6 +745,12 @@ async function runAnalysis() {
   kiIds.forEach((id,i) => { const el = document.getElementById(id); if(el && el.checked) knownIssues.push(kiLabels[i]); });
 
   lastMeta = { client, market, address, type, sqft, bid, pkg };
+  // Store full form data for scoring engine
+  window.lastFormData = {
+    purchase, arv, financing, rate, timeline, exit, finish,
+    roofAge, roofCond, hvacAge, hvacCond, elecAge, elecCond,
+    plumbing, whAge, foundation, foundCond, knownIssues
+  };
 
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
@@ -763,21 +769,20 @@ async function runAnalysis() {
   setStep(4); await delay(600);
   setStep(5);
 
-  const prompt = `You are a senior construction cost estimator with 20+ years experience. Analyze this bid and return ONLY valid JSON. Start with { end with }. No other text.
+  const prompt = `You are a construction cost expert. Analyze this rehab bid. Return ONLY a JSON object - nothing else, no markdown, no explanation.
 
-PROPERTY: ${address} | ${type||'residential'} | ${sqft||'?'}sqft | Built: ${year||'unknown'} | Condition: ${condition||'unknown'} | ${beds||'?'}bd/${baths||'?'}ba
-MARKET: ${market||'US'}
-DEAL: Purchase: ${purchase||'unknown'} | ARV: ${arv||'unknown'} | Contractor Bid: ${bid}
-FINANCING: ${financing||'unknown'} ${rate ? 'at '+rate : ''} | Timeline: ${timeline||'unknown'} | Exit: ${exit||'unknown'} | Finish: ${finish||'unknown'}
-CONTRACTOR: ${contractor||'unknown'}
-SYSTEMS: Roof(${roofAge||'?'} - ${roofCond||'?'}) HVAC(${hvacAge||'?'} - ${hvacCond||'?'}) Electric(${elecAge||'?'} - ${elecCond||'?'}) Plumbing(${plumbing||'?'}) WaterHeater(${whAge||'?'}) Foundation(${foundation||'?'} - ${foundCond||'?'})
-KNOWN ISSUES: ${knownIssues.length ? knownIssues.join(', ') : 'None reported'}
-${notes ? 'NOTES: '+notes : ''}
+PROPERTY: ${address} | ${type||'SFR'} | ${sqft||'?'}sqft | Built ${year||'?'} | ${condition||'?'} | ${beds||'?'}bd/${baths||'?'}ba | ${market||'US'}
+DEAL: Buy@${purchase||'?'} ARV@${arv||'?'} Bid@${bid} | ${financing||'?'} ${rate||''} | ${timeline||'?'} | ${exit||'?'} | ${finish||'?'}
+SYSTEMS: Roof(${roofAge||'?'}/${roofCond||'?'}) HVAC(${hvacAge||'?'}/${hvacCond||'?'}) Electric(${elecAge||'?'}/${elecCond||'?'}) Plumbing(${plumbing||'?'}) WH(${whAge||'?'}) Foundation(${foundation||'?'}/${foundCond||'?'})
+ISSUES: ${knownIssues.length ? knownIssues.join(', ') : 'none'}
+CONTRACTOR: ${contractor||'?'} | PACKAGE: ${pkg}
+${notes ? 'NOTES: '+notes.slice(0,200) : ''}
 
-CONTRACTOR SCOPE:
-${scope.slice(0,3000)}
+SCOPE:
+${scope.slice(0,2000)}
 
-{"summary":{"contractorBid":"${bid}","estimatedRealisticBudget":"$X,XXX-$X,XXX","budgetVariance":"+$X,XXX to +$X,XXX","riskLevel":"Low|Medium|High|Critical","missingItemsCount":0,"overPricedItemsCount":0,"underPricedItemsCount":0,"overallVerdict":"one sentence"},"lineItems":[{"item":"name","bidAmount":"$X,XXX","marketLow":"$X,XXX","marketHigh":"$X,XXX","status":"Reasonable|Overpriced|Underpriced|Missing","flag":"brief note"}],"missingItems":[{"item":"name","estimatedCost":"$X,XXX-$X,XXX","reason":"why required for this property"}],"recommendations":[{"priority":"High|Medium|Low","recommendation":"specific action","why":"reason"}],"sequencingIssues":[{"issue":"problem","impact":"cost or timeline impact"}],"narrative":"4 paragraphs: overall verdict, line item analysis, systems and missing items, recommendations and next steps for the investor."}`;
+Return this exact JSON (keep responses brief to fit in token limit):
+{"summary":{"contractorBid":"${bid}","estimatedRealisticBudget":"$X-$Y","budgetVariance":"+$X to +$Y","riskLevel":"High","missingItemsCount":5,"overPricedItemsCount":2,"underPricedItemsCount":1,"overallVerdict":"One sentence verdict."},"lineItems":[{"item":"Demo","bidAmount":"$1,800","marketLow":"$1,500","marketHigh":"$2,500","status":"Reasonable","flag":"OK for scope"}],"missingItems":[{"item":"Roof inspection","estimatedCost":"$8,000-$12,000","reason":"1987 roof unknown condition"}],"recommendations":[{"priority":"High","recommendation":"Get roof inspection before closing","why":"Unknown condition on 37yr old roof"}],"sequencingIssues":[{"issue":"Paint before flooring","impact":"Risk of damage"}],"narrative":"Para 1: overall verdict. Para 2: line item findings. Para 3: missing items and risks. Para 4: next steps."}`;
 
   try {
     const res = await fetch('/api/analyze', {
@@ -850,6 +855,8 @@ ${scope.slice(0,3000)}
 // ── RENDER REPORT ──────────────────────────────
 function renderReport(r, m) {
   const s = r.summary || {};
+  // Calculate deterministic score
+  const dealScore = calculateDealScore(r, m, window.lastFormData || {});
   const riskColor = { Low:'sv-green', Medium:'sv-amber', High:'sv-red', Critical:'sv-red' };
 
   // Header
@@ -858,10 +865,84 @@ function renderReport(r, m) {
 
   // Scores
   document.getElementById('score-grid').innerHTML = `
+    <div class="score-card" style="border:2px solid ${dealScore.color};background:${dealScore.bg};">
+      <div style="font-size:2.8rem;font-weight:900;color:${dealScore.color};line-height:1;">${dealScore.score}</div>
+      <div style="font-size:0.6rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:${dealScore.color};margin-top:2px;">Deal Score</div>
+      <div style="font-size:1.4rem;font-weight:900;color:${dealScore.color};letter-spacing:-0.02em;">${dealScore.grade}</div>
+    </div>
     <div class="score-card"><div class="score-val sv-white">${s.contractorBid||'—'}</div><div class="score-lbl">Contractor Bid</div></div>
     <div class="score-card"><div class="score-val sv-amber">${s.estimatedRealisticBudget||'—'}</div><div class="score-lbl">Realistic Budget</div></div>
-    <div class="score-card"><div class="score-val sv-red">${s.missingItemsCount??'—'}</div><div class="score-lbl">Missing Items</div></div>
-    <div class="score-card"><div class="score-val ${riskColor[s.riskLevel]||'sv-white'}">${s.riskLevel||'—'}</div><div class="score-lbl">Risk Level</div></div>`;
+    <div class="score-card"><div class="score-val sv-red">${s.missingItemsCount??'—'}</div><div class="score-lbl">Missing Items</div></div>`;
+
+  // Add score breakdown section below header
+  const existingBreakdown = document.getElementById('score-breakdown');
+  if (existingBreakdown) existingBreakdown.remove();
+  const breakdownEl = document.createElement('div');
+  breakdownEl.id = 'score-breakdown';
+  breakdownEl.className = 'sec-card fade';
+  // Build score breakdown HTML without nested template literals
+  function buildBreakdownRow(b) {
+    const pct = Math.round(b.result / b.maxPts * 100);
+    const c = b.result < b.maxPts * 0.5 ? 'var(--red)' : b.result < b.maxPts * 0.8 ? 'var(--amber-dk)' : 'var(--green)';
+    const bc = b.result < b.maxPts * 0.5 ? 'var(--red)' : b.result < b.maxPts * 0.8 ? 'var(--amber)' : 'var(--green)';
+    return '<div style="background:var(--gray-lt);border-radius:8px;padding:0.85rem;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">' +
+      '<span style="font-size:0.75rem;font-weight:800;color:var(--slate);">' + b.category + '</span>' +
+      '<span style="font-size:0.9rem;font-weight:900;color:' + c + ';">' + b.result + '/' + b.maxPts + '</span>' +
+      '</div>' +
+      '<div style="background:#E5E7EB;border-radius:100px;height:6px;overflow:hidden;">' +
+      '<div style="height:100%;width:' + pct + '%;background:' + bc + ';border-radius:100px;"></div>' +
+      '</div></div>';
+  }
+  function buildDeductionRow(d) {
+    return '<div style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.82rem;font-weight:600;color:var(--red);padding:0.3rem 0;border-bottom:1px solid var(--border);">' +
+      '<span style="flex-shrink:0;margin-top:2px;">▼</span>' + d + '</div>';
+  }
+  const breakdownRows  = dealScore.breakdown.map(buildBreakdownRow).join('');
+  const deductionRows  = dealScore.deductions.map(buildDeductionRow).join('');
+  const deductionBlock = dealScore.deductions.length
+    ? '<div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--gray);margin-bottom:0.5rem;">Score Deductions</div>' + deductionRows
+    : '<div style="color:var(--green);font-weight:700;font-size:0.88rem;">✓ No significant deductions</div>';
+
+  breakdownEl.innerHTML =
+    '<div class="sec-head" onclick="toggle(this)">' +
+      '<div class="sec-icon" style="background:' + dealScore.bg + ';color:' + dealScore.color + ';">' +
+        '<svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>' +
+      '</div>' +
+      '<span class="sec-title">RehabScope™ Deal Score — ' + dealScore.score + '/100 (' + dealScore.grade + ')</span>' +
+      '<span class="sec-badge" style="background:' + dealScore.bg + ';color:' + dealScore.color + ';">' + dealScore.recommendation.split('—')[0].trim() + '</span>' +
+      '<svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+    '</div>' +
+    '<div class="sec-body open">' +
+      '<div style="background:' + dealScore.bg + ';border:1.5px solid ' + dealScore.color + ';border-radius:10px;padding:1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.5rem;">' +
+        '<div style="text-align:center;flex-shrink:0;">' +
+          '<div style="font-size:3rem;font-weight:900;color:' + dealScore.color + ';line-height:1;">' + dealScore.score + '</div>' +
+          '<div style="font-size:1.8rem;font-weight:900;color:' + dealScore.color + ';">' + dealScore.grade + '</div>' +
+          '<div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:' + dealScore.color + ';">Deal Score</div>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-size:1rem;font-weight:900;color:' + dealScore.color + ';margin-bottom:0.5rem;">' + dealScore.recommendation + '</div>' +
+          '<div style="font-size:0.82rem;font-weight:600;color:var(--gray);">Score is calculated from budget gap, scope completeness, systems condition, deal math, and timeline risk. Not AI-generated — fully deterministic.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">' + breakdownRows + '</div>' +
+      deductionBlock +
+      '<div style="margin-top:1.25rem;padding:1rem;background:#F8F9FA;border:1.5px solid #E5E7EB;border-radius:8px;border-left:4px solid #94A3B8;">' +
+        '<div style="font-size:0.68rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:0.5rem;">⚖ Score Disclaimer & Limitation of Liability</div>' +
+        '<div style="font-size:0.75rem;font-weight:600;color:#6B7280;line-height:1.65;">' +
+          'The RehabScope™ Deal Score is provided solely as a visual reference tool to assist reviewers in identifying areas that may require additional documentation, inspections, or due diligence prior to lending or investment decisions. ' +
+          'This score does <strong>not</strong> constitute a credit decision, loan approval, denial, investment recommendation, or guarantee of any kind. ' +
+          'The score is not a substitute for a full underwriting review, professional property inspection, licensed contractor estimate, legal counsel, or any other due diligence required by applicable law or lending guidelines. ' +
+          '<br/><br/>' +
+          'RehabScope™ and its principals, affiliates, employees, and agents expressly disclaim all liability for any lending decisions, investment outcomes, financial losses, or legal claims arising from reliance on this score or any content contained in this report. ' +
+          'This report is prepared for informational purposes only and is not intended to be used as the sole basis for any financial or legal decision. ' +
+          'All scope estimates, cost projections, and market comparisons are based on professional judgment and available market data at the time of review and are subject to change. ' +
+          'Scores below 70 may indicate that a more detailed scope of work, additional contractor bids, further property inspections, environmental assessments, or supplemental documentation should be obtained before proceeding.' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('sections').insertAdjacentElement('afterbegin', breakdownEl);
 
   const secs = document.getElementById('sections');
   secs.innerHTML = '';
@@ -1007,164 +1088,252 @@ function generateReport() {
   btn.innerHTML = '<span class="spin">⏳</span> Building Report...';
 
   const r         = lastReport;
+  const dealScore  = calculateDealScore(r, m, window.lastFormData || {});
   const m         = lastMeta;
   const narrative = document.getElementById('narrative').innerText.trim();
   const s         = r.summary || {};
   const date      = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
 
-  const riskColors = { Low:'#2D7A4F', Medium:'#B8860B', High:'#C0392B', Critical:'#7B0000' };
+  const riskColors = { Low:'#2D7A4F', Medium:'#92650A', High:'#C0392B', Critical:'#7B0000' };
+  const riskBg     = { Low:'#E8F5EE', Medium:'#FEF9E7', High:'#FDECEA', Critical:'#FDECEA' };
   const riskC = riskColors[s.riskLevel] || '#2C3A4A';
+  const riskB = riskBg[s.riskLevel] || '#F3F4F6';
 
-  // Status badge helper
-  function stBadge(st) {
+  function stStyle(st) {
     const map = {
-      Reasonable: ['#E8F5EE','#2D7A4F'],
-      Overpriced:  ['#FDECEA','#C0392B'],
-      Underpriced: ['#FFF8E1','#B8860B'],
-      Missing:     ['#FDECEA','#C0392B']
+      Reasonable: 'background:#E8F5EE;color:#2D7A4F;border:1px solid #B2DFCC',
+      Overpriced:  'background:#FDECEA;color:#C0392B;border:1px solid #FADBD8',
+      Underpriced: 'background:#FEF9E7;color:#92650A;border:1px solid #F9E79F',
+      Missing:     'background:#FDECEA;color:#C0392B;border:1px solid #FADBD8'
     };
-    const [bg,c] = map[st] || ['#F3F4F6','#6B7280'];
-    return '<span style="background:' + bg + ';color:' + c + ';border-radius:100px;padding:2px 10px;font-size:11px;font-weight:800;white-space:nowrap;">' + st + '</span>';
+    return map[st] || 'background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB';
   }
 
-  // Priority colors
+  function prioBorderColor(p) {
+    return { High:'#C0392B', Medium:'#E67E22', Low:'#2D7A4F' }[p] || '#6B7280';
+  }
   function prioBg(p) {
-    return { High:'#FDECEA', Medium:'#FFF8E1', Low:'#E8F5EE' }[p] || '#F3F4F6';
+    return { High:'#FDECEA', Medium:'#FEF9E7', Low:'#E8F5EE' }[p] || '#F3F4F6';
   }
-  function prioC(p) {
-    return { High:'#C0392B', Medium:'#B8860B', Low:'#2D7A4F' }[p] || '#6B7280';
+  function prioColor(p) {
+    return { High:'#C0392B', Medium:'#92650A', Low:'#2D7A4F' }[p] || '#6B7280';
   }
 
-  // Line item rows
-  const lineRows = (r.lineItems||[]).map(li =>
-    '<tr>' +
-    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;font-weight:700;">' + li.item + '</td>' +
-    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:right;font-weight:700;">' + (li.bidAmount||'—') + '</td>' +
-    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:right;">' + (li.marketLow||'—') + '</td>' +
-    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:right;">' + (li.marketHigh||'—') + '</td>' +
-    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:center;">' + stBadge(li.status) + '</td>' +
-    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;font-size:12px;color:#6B7280;">' + (li.flag||'') + '</td>' +
-    '</tr>'
+  const lineRows = (r.lineItems||[]).map((li,i) => `
+    <tr style="background:${i%2===0?'#FFFFFF':'#FAFAFA'};">
+      <td style="padding:10px 14px;border-bottom:1px solid #E5E7EB;font-weight:700;color:#111;font-size:13px;">${li.item}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #E5E7EB;text-align:right;font-weight:800;color:#111;font-size:13px;white-space:nowrap;">${li.bidAmount||'—'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #E5E7EB;text-align:right;color:#6B7280;font-size:13px;white-space:nowrap;">${li.marketLow||'—'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #E5E7EB;text-align:right;color:#6B7280;font-size:13px;white-space:nowrap;">${li.marketHigh||'—'}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #E5E7EB;text-align:center;"><span style="${stStyle(li.status)};border-radius:100px;padding:3px 10px;font-size:11px;font-weight:800;white-space:nowrap;">${li.status}</span></td>
+      <td style="padding:10px 14px;border-bottom:1px solid #E5E7EB;font-size:12px;color:#6B7280;">${li.flag||''}</td>
+    </tr>`).join('');
+
+  const missingRows = (r.missingItems||[]).map(mi => `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #FADBD8;">
+        <div style="font-weight:800;font-size:13px;color:#7B241C;margin-bottom:3px;">${mi.item}</div>
+        <div style="font-size:12px;color:#922B21;">${mi.reason||''}</div>
+      </td>
+      <td style="padding:12px 16px;border-bottom:1px solid #FADBD8;white-space:nowrap;font-weight:800;font-size:13px;color:#C0392B;text-align:right;">${mi.estimatedCost||'—'}</td>
+    </tr>`).join('');
+
+  const recHTML = (r.recommendations||[]).map((rec,i) => `
+    <div style="display:flex;gap:14px;padding:14px 16px;background:${prioBg(rec.priority)};border-left:4px solid ${prioBorderColor(rec.priority)};border-radius:0 8px 8px 0;margin-bottom:10px;">
+      <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:${prioBorderColor(rec.priority)};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;">${i+1}</div>
+      <div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:${prioColor(rec.priority)};margin-bottom:4px;">${rec.priority||''} Priority</div>
+        <div style="font-weight:800;font-size:13px;color:#111;margin-bottom:4px;">${rec.recommendation}</div>
+        <div style="font-size:12px;color:#555;">${rec.why||''}</div>
+      </div>
+    </div>`).join('');
+
+  const seqHTML = (r.sequencingIssues||[]).map(si => `
+    <div style="padding:12px 16px;background:#FEF9E7;border-left:4px solid #E67E22;border-radius:0 8px 8px 0;margin-bottom:10px;">
+      <div style="font-weight:800;font-size:13px;color:#784212;margin-bottom:4px;">${si.issue}</div>
+      <div style="font-size:12px;color:#935116;">${si.impact||''}</div>
+    </div>`).join('');
+
+  const narHTML = narrative.split(/\n+/).filter(p=>p.trim()).map(p =>
+    `<p style="margin:0 0 16px;line-height:1.85;font-size:14px;color:#2C3A4A;">${p}</p>`
   ).join('');
 
-  // Missing items
-  const missingHTML = (r.missingItems||[]).map(mi =>
-    '<div style="background:#FDECEA;border-left:4px solid #C0392B;border-radius:6px;padding:12px 14px;margin-bottom:8px;">' +
-    '<div style="font-weight:800;font-size:13px;color:#7B241C;">' + mi.item + (mi.estimatedCost ? ' <span style="font-weight:600;color:#C0392B;">— Est. ' + mi.estimatedCost + '</span>' : '') + '</div>' +
-    '<div style="font-size:12px;color:#a05050;margin-top:4px;">' + (mi.reason||'') + '</div>' +
-    '</div>'
-  ).join('');
+  const reportHTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>RehabScope™ Report — ${m.address||'Property'}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#F3F4F6;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.page{max-width:820px;margin:0 auto;background:#fff;}
+.noprint{background:#1a1a2e;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.print-btn{background:#E8A020;color:#111;border:none;border-radius:8px;padding:10px 24px;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;}
+.close-btn{background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+.section-title{font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#fff;background:#2C3A4A;padding:10px 20px;}
+th{background:#2C3A4A;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:11px 14px;text-align:left;}
+@media print{.noprint{display:none!important;}.page{max-width:100%;}.pb{page-break-before:always;}}
+@page{margin:12mm 15mm;size:letter;}
+</style></head><body>
 
-  // Sequencing
-  const seqHTML = (r.sequencingIssues||[]).map(si =>
-    '<div style="background:#FFF8E1;border-left:4px solid #B8860B;border-radius:6px;padding:12px 14px;margin-bottom:8px;">' +
-    '<div style="font-weight:800;font-size:13px;color:#5D4037;">' + si.issue + '</div>' +
-    '<div style="font-size:12px;color:#8D6E63;margin-top:4px;">' + (si.impact||'') + '</div>' +
-    '</div>'
-  ).join('');
+<div class="noprint">
+  <span style="color:#E8A020;font-weight:900;font-size:16px;">RehabScope&#8482; — Ready to Print</span>
+  <div style="display:flex;gap:10px;">
+    <button class="print-btn" onclick="window.print()">&#128438; Print / Save PDF</button>
+    <button class="close-btn" onclick="window.close()">Close</button>
+  </div>
+</div>
 
-  // Recommendations
-  const recHTML = (r.recommendations||[]).map((rec,i) =>
-    '<div style="background:' + prioBg(rec.priority) + ';border-left:4px solid ' + prioC(rec.priority) + ';border-radius:6px;padding:12px 14px;margin-bottom:8px;">' +
-    '<div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:' + prioC(rec.priority) + ';margin-bottom:4px;">' + (rec.priority||'') + ' Priority</div>' +
-    '<div style="font-weight:800;font-size:13px;color:#111;">' + rec.recommendation + '</div>' +
-    '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + (rec.why||'') + '</div>' +
-    '</div>'
-  ).join('');
+<div class="page">
 
-  // Narrative paragraphs
-  const narHTML = narrative.split(/\n+/).filter(p => p.trim()).map(p =>
-    '<p style="margin:0 0 16px 0;line-height:1.8;font-size:14px;color:#2C3A4A;">' + p + '</p>'
-  ).join('');
+  <!-- COVER HEADER -->
+  <div style="background:#111;padding:36px 40px 30px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+      <div>
+        <div style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-0.02em;">RehabScope<span style="color:#E8A020;">&#8482;</span></div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#94A3B8;margin-top:6px;">Independent Rehab Scope &amp; Budget Review</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="background:#E8A020;color:#111;font-size:10px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:8px;display:inline-block;">${m.pkg||'Review'}</div>
+        <div style="font-size:12px;color:#94A3B8;">${date}</div>
+        <div style="font-size:11px;color:#64748B;margin-top:3px;">Prepared by RehabScope&#8482;</div>
+      </div>
+    </div>
+    <div style="height:3px;background:linear-gradient(90deg,#E8A020,#F5BE58);border-radius:2px;"></div>
+  </div>
 
-  // Build the report HTML using string concatenation (no template literals = no parser issues)
-  const reportHTML =
-    '<!DOCTYPE html>' +
-    '<html lang="en"><head><meta charset="UTF-8"/>' +
-    '<title>RehabScope Report - ' + (m.address||'Property') + '</title>' +
-    '<style>' +
-    'body{font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#fff;color:#111;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
-    '.wrap{max-width:800px;margin:0 auto;padding:0 0 60px;}' +
-    'table{border-collapse:collapse;width:100%;}' +
-    'th{background:#2C3A4A;color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:9px 10px;text-align:left;}' +
-    '.sh{background:#2C3A4A;color:#fff;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:9px 14px;border-radius:4px;margin:28px 0 12px;}' +
-    '.noprint{background:#111;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;}' +
-    '@media print{.noprint{display:none!important;}.pb{page-break-before:always;}}' +
-    '@page{margin:15mm 18mm;size:letter;}' +
-    '</style></head><body>' +
-    '<div class="noprint">' +
-    '<span style="color:#E8A020;font-weight:900;font-size:16px;">RehabScope&#8482; Report &#8212; Ready to Print</span>' +
-    '<div style="display:flex;gap:10px;">' +
-    '<button onclick="window.print()" style="background:#E8A020;color:#111;border:none;border-radius:8px;padding:10px 22px;font-weight:900;font-size:14px;cursor:pointer;">Print / Save as PDF</button>' +
-    '<button onclick="window.close()" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;">Close</button>' +
-    '</div></div>' +
-    '<div class="wrap">' +
+  <!-- PROPERTY INFO BAR -->
+  <div style="background:#F8F9FA;border-bottom:3px solid #E8A020;padding:20px 40px;">
+    <div style="font-size:22px;font-weight:900;color:#111;margin-bottom:8px;">${m.address||'Property Address'}</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+      ${m.client ? `<span style="font-size:12px;color:#6B7280;font-weight:600;"><strong style="color:#111;">Client:</strong> ${m.client}</span>` : ''}
+      ${m.type ? `<span style="font-size:12px;color:#6B7280;font-weight:600;"><strong style="color:#111;">Type:</strong> ${m.type}</span>` : ''}
+      ${m.sqft ? `<span style="font-size:12px;color:#6B7280;font-weight:600;"><strong style="color:#111;">Size:</strong> ${m.sqft} sq ft</span>` : ''}
+      ${m.market ? `<span style="font-size:12px;color:#6B7280;font-weight:600;"><strong style="color:#111;">Market:</strong> ${m.market}</span>` : ''}
+    </div>
+  </div>
 
-    // Cover
-    '<div style="background:#111;padding:32px 36px 28px;">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
-    '<div>' +
-    '<div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:-.02em;">RehabScope<span style="color:#E8A020;">&#8482;</span></div>' +
-    '<div style="font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#94A3B8;margin-top:4px;">Independent Rehab Scope &amp; Budget Review</div>' +
-    '</div>' +
-    '<div style="text-align:right;">' +
-    '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E8A020;">' + (m.pkg||'') + '</div>' +
-    '<div style="font-size:11px;color:#94A3B8;margin-top:4px;">' + date + '</div>' +
-    '</div></div>' +
-    '<div style="height:3px;background:#E8A020;margin-top:24px;border-radius:2px;"></div>' +
-    '</div>' +
+  <!-- RISK BANNER -->
+  <div style="background:${riskC};padding:16px 40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:6px 14px;">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.8);">Overall Risk</div>
+        <div style="font-size:22px;font-weight:900;color:#fff;">${s.riskLevel||'Medium'}</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.9);max-width:450px;line-height:1.5;font-weight:600;">${s.overallVerdict||''}</div>
+  </div>
 
-    // Property info
-    '<div style="background:#F3F4F6;border-left:4px solid #E8A020;padding:18px 24px;">' +
-    '<div style="font-size:17px;font-weight:900;color:#111;margin-bottom:6px;">' + (m.address||'Property Address') + '</div>' +
-    '<div style="font-size:12px;color:#6B7280;display:flex;gap:24px;flex-wrap:wrap;">' +
-    '<span><strong>Client:</strong> ' + (m.client||'—') + '</span>' +
-    '<span><strong>Type:</strong> ' + (m.type||'—') + '</span>' +
-    '<span><strong>Size:</strong> ' + (m.sqft ? m.sqft+' sq ft' : '—') + '</span>' +
-    '<span><strong>Market:</strong> ' + (m.market||'—') + '</span>' +
-    '</div></div>' +
+  <!-- BUDGET SUMMARY GRID -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid #E5E7EB;">
+    <div style="padding:20px;text-align:center;border-right:1px solid #E5E7EB;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px;">Contractor Bid</div>
+      <div style="font-size:22px;font-weight:900;color:#111;">${s.contractorBid||'—'}</div>
+    </div>
+    <div style="padding:20px;text-align:center;border-right:1px solid #E5E7EB;background:#FFFDF7;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px;">Realistic Budget</div>
+      <div style="font-size:20px;font-weight:900;color:#92650A;">${s.estimatedRealisticBudget||'—'}</div>
+    </div>
+    <div style="padding:20px;text-align:center;border-right:1px solid #E5E7EB;background:#FFF8F8;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px;">Budget Gap</div>
+      <div style="font-size:20px;font-weight:900;color:#C0392B;">${s.budgetVariance||'—'}</div>
+    </div>
+    <div style="padding:20px;text-align:center;background:#FFF8F8;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px;">Missing Items</div>
+      <div style="font-size:22px;font-weight:900;color:#C0392B;">${s.missingItemsCount||0}</div>
+    </div>
+  </div>
 
-    // Risk banner
-    '<div style="background:' + riskC + ';padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
-    '<div style="font-size:14px;font-weight:900;color:#fff;letter-spacing:.05em;">OVERALL RISK: ' + ((s.riskLevel||'MEDIUM').toUpperCase()) + '</div>' +
-    '<div style="font-size:12px;color:rgba(255,255,255,.85);max-width:420px;">' + (s.overallVerdict||'') + '</div>' +
-    '</div>' +
+  <!-- STATS ROW -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:2px solid #E5E7EB;background:#F8F9FA;">
+    <div style="padding:14px 20px;text-align:center;border-right:1px solid #E5E7EB;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:4px;">Overpriced Items</div>
+      <div style="font-size:18px;font-weight:900;color:#C0392B;">${s.overPricedItemsCount||0}</div>
+    </div>
+    <div style="padding:14px 20px;text-align:center;border-right:1px solid #E5E7EB;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:4px;">Underpriced Items</div>
+      <div style="font-size:18px;font-weight:900;color:#92650A;">${s.underPricedItemsCount||0}</div>
+    </div>
+    <div style="padding:14px 20px;text-align:center;">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:4px;">Items Reviewed</div>
+      <div style="font-size:18px;font-weight:900;color:#2D7A4F;">${(r.lineItems||[]).length}</div>
+    </div>
+  </div>
 
-    // Budget grid
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E5E7EB;">' +
-    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Contractor Bid</div><div style="font-size:18px;font-weight:900;color:#111;">' + (s.contractorBid||'—') + '</div></div>' +
-    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Realistic Budget</div><div style="font-size:18px;font-weight:900;color:#B8860B;">' + (s.estimatedRealisticBudget||'—') + '</div></div>' +
-    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Budget Variance</div><div style="font-size:18px;font-weight:900;color:#C0392B;">' + (s.budgetVariance||'—') + '</div></div>' +
-    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Missing Items</div><div style="font-size:18px;font-weight:900;color:#C0392B;">' + (s.missingItemsCount||'0') + '</div></div>' +
-    '</div>' +
+  ${lineRows ? `
+  <!-- LINE ITEMS -->
+  <div style="margin-top:32px;padding:0 40px;">
+    <div class="section-title" style="border-radius:8px 8px 0 0;">Line Item Price Analysis</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-top:none;">
+      <thead><tr>
+        <th style="width:30%;">Line Item</th>
+        <th style="width:12%;text-align:right;">Bid</th>
+        <th style="width:12%;text-align:right;">Mkt Low</th>
+        <th style="width:12%;text-align:right;">Mkt High</th>
+        <th style="width:14%;text-align:center;">Status</th>
+        <th>Notes</th>
+      </tr></thead>
+      <tbody>${lineRows}</tbody>
+    </table>
+  </div>` : ''}
 
-    // Line items
-    (lineRows ? '<div class="pb" style="margin-top:28px;"><div class="sh">Line Item Price Analysis</div><table><thead><tr><th style="width:28%;">Line Item</th><th style="width:13%;text-align:right;">Bid</th><th style="width:12%;text-align:right;">Mkt Low</th><th style="width:12%;text-align:right;">Mkt High</th><th style="width:13%;text-align:center;">Status</th><th>Notes</th></tr></thead><tbody>' + lineRows + '</tbody></table></div>' : '') +
+  ${missingRows ? `
+  <!-- MISSING ITEMS -->
+  <div style="margin-top:32px;padding:0 40px;">
+    <div class="section-title" style="background:#C0392B;border-radius:8px 8px 0 0;">&#9888; Missing Scope Items — ${(r.missingItems||[]).length} Found</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #FADBD8;border-top:none;background:#FFFBFB;">
+      <thead><tr>
+        <th style="background:#E74C3C;">Missing Item &amp; Reason</th>
+        <th style="background:#E74C3C;text-align:right;width:160px;">Estimated Cost</th>
+      </tr></thead>
+      <tbody>${missingRows}</tbody>
+    </table>
+  </div>` : ''}
 
-    // Missing items
-    (missingHTML ? '<div style="margin-top:28px;"><div class="sh" style="background:#C0392B;">Missing Scope Items &#8212; ' + (r.missingItems||[]).length + ' Found</div>' + missingHTML + '</div>' : '') +
+  ${seqHTML ? `
+  <!-- SEQUENCING -->
+  <div style="margin-top:32px;padding:0 40px;">
+    <div class="section-title" style="background:#8D6E63;border-radius:8px 8px 0 0;">Sequencing Issues</div>
+    <div style="border:1px solid #D7CCC8;border-top:none;padding:16px;">${seqHTML}</div>
+  </div>` : ''}
 
-    // Sequencing
-    (seqHTML ? '<div style="margin-top:28px;"><div class="sh" style="background:#8D6E63;">Sequencing Issues</div>' + seqHTML + '</div>' : '') +
+  ${recHTML ? `
+  <!-- RECOMMENDATIONS -->
+  <div style="margin-top:32px;padding:0 40px;">
+    <div class="section-title" style="background:#2D7A4F;border-radius:8px 8px 0 0;">Recommendations</div>
+    <div style="border:1px solid #B2DFCC;border-top:none;padding:16px;">${recHTML}</div>
+  </div>` : ''}
 
-    // Recommendations
-    (recHTML ? '<div style="margin-top:28px;"><div class="sh" style="background:#2D7A4F;">Recommendations</div>' + recHTML + '</div>' : '') +
+  <!-- NARRATIVE -->
+  <div style="margin-top:32px;padding:0 40px 40px;">
+    <div class="section-title" style="border-radius:8px 8px 0 0;">RehabScope&#8482; Review Narrative</div>
+    <div style="border:1px solid #E5E7EB;border-top:none;padding:28px 32px;background:#FFFDF7;">
+      ${narHTML}
+    </div>
+  </div>
 
-    // Narrative
-    '<div class="pb" style="margin-top:28px;">' +
-    '<div class="sh">RehabScope&#8482; Review Narrative</div>' +
-    '<div style="background:#FFFDF7;border:1.5px solid #E5E7EB;border-radius:8px;padding:24px 28px;">' + narHTML + '</div>' +
-    '</div>' +
+  <!-- SCORE DISCLAIMER -->
+  <div style="margin:32px 40px 0;padding:20px 24px;background:#F8F9FA;border:1.5px solid #E5E7EB;border-left:4px solid #94A3B8;border-radius:0 8px 8px 0;">
+    <div style="font-size:9px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px;">&#9878; RehabScope&#8482; Score Disclaimer &amp; Limitation of Liability</div>
+    <div style="font-size:10px;color:#6B7280;line-height:1.7;">
+      The RehabScope&#8482; Deal Score is provided solely as a visual reference tool to assist reviewers in identifying areas that may require additional documentation, inspections, or due diligence prior to lending or investment decisions. This score does <strong>not</strong> constitute a credit decision, loan approval or denial, investment recommendation, or guarantee of any kind. The score is not a substitute for a full underwriting review, professional property inspection, licensed contractor estimate, legal counsel, or any other due diligence required by applicable law or lending guidelines. Scores below 70 may indicate that a more detailed scope of work, additional contractor bids, further property inspections, environmental assessments, or supplemental documentation should be obtained before proceeding.
+      <br/><br/>
+      RehabScope&#8482; and its principals, affiliates, employees, and agents expressly disclaim all liability for any lending decisions, investment outcomes, financial losses, or legal claims arising from reliance on this score or any content contained in this report. This report is prepared for informational purposes only and is not intended to be used as the sole basis for any financial or legal decision. All scope estimates, cost projections, and market comparisons are based on professional judgment and available market data at the time of review and are subject to change without notice. No warranty, express or implied, is made as to the accuracy or completeness of any information contained herein.
+    </div>
+  </div>
 
-    // Footer
-    '<div style="margin-top:36px;border-top:2px solid #E5E7EB;padding-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-    '<div><div style="font-size:13px;font-weight:900;color:#111;">RehabScope<span style="color:#E8A020;">&#8482;</span> Independent Review</div><div style="font-size:11px;color:#6B7280;margin-top:2px;">taskrocketai@gmail.com</div></div>' +
-    '<div style="font-size:10px;color:#9CA3AF;text-align:right;max-width:320px;line-height:1.5;">This report is prepared for the exclusive use of the named client. RehabScope&#8482; provides independent scope and budget review for real estate investors.</div>' +
-    '</div>' +
+  <!-- FOOTER -->
+  <div style="margin:20px 40px 40px;padding-top:20px;border-top:2px solid #E5E7EB;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <div style="font-size:14px;font-weight:900;color:#111;">RehabScope<span style="color:#E8A020;">&#8482;</span> Independent Review</div>
+      <div style="font-size:11px;color:#6B7280;margin-top:3px;">taskrocketai@gmail.com</div>
+    </div>
+    <div style="font-size:10px;color:#9CA3AF;text-align:right;max-width:320px;line-height:1.6;">
+      &#169; ${new Date().getFullYear()} RehabScope&#8482;. All rights reserved. Prepared for the exclusive use of the named client. Unauthorized reproduction or distribution is prohibited.
+    </div>
+  </div>
 
-    '</div></body></html>';
+</div>
+</body></html>`;
 
-  const win = window.open('', '_blank', 'width=900,height=750');
+  const win = window.open('', '_blank', 'width=920,height=800');
   if (!win) {
     alert('Pop-up blocked. Please allow pop-ups for this page, then click Approve again.');
     btn.disabled = false;
@@ -1183,6 +1352,152 @@ function generateReport() {
     btn.style.color = '';
     btn.disabled = false;
   }, 3000);
+}
+
+// ── DEAL SCORING ENGINE ──────────────────────────
+function calculateDealScore(report, meta, formData) {
+  const s = report.summary || {};
+  let score = 100;
+  const deductions = [];
+  const breakdown  = [];
+
+  // ── 1. BUDGET RISK (max 30 pts) ──────────────────
+  let budgetDeduction = 0;
+  const bidRaw       = parseFloat((meta.bid||'0').replace(/[^0-9.]/g,'')) || 0;
+  const purchaseRaw  = parseFloat((formData.purchase||'0').replace(/[^0-9.]/g,'')) || 0;
+  const arvRaw       = parseFloat((formData.arv||'0').replace(/[^0-9.]/g,'')) || 0;
+
+  // Parse realistic budget midpoint from AI response
+  const budgetStr = s.estimatedRealisticBudget || '';
+  const budgetNums = budgetStr.match(/[\d,]+/g);
+  let realisticBudget = 0;
+  if (budgetNums && budgetNums.length >= 2) {
+    const lo = parseFloat(budgetNums[0].replace(/,/g,''));
+    const hi = parseFloat(budgetNums[1].replace(/,/g,''));
+    realisticBudget = (lo + hi) / 2;
+  } else if (budgetNums && budgetNums.length === 1) {
+    realisticBudget = parseFloat(budgetNums[0].replace(/,/g,''));
+  }
+
+  if (bidRaw > 0 && realisticBudget > 0) {
+    const gap = realisticBudget - bidRaw;
+    const gapPct = gap / realisticBudget;
+    if (gapPct > 0.5)       { budgetDeduction = 30; deductions.push('Contractor bid is 50%+ below realistic budget'); }
+    else if (gapPct > 0.35) { budgetDeduction = 24; deductions.push('Contractor bid is 35-50% below realistic budget'); }
+    else if (gapPct > 0.25) { budgetDeduction = 18; deductions.push('Contractor bid is 25-35% below realistic budget'); }
+    else if (gapPct > 0.15) { budgetDeduction = 12; deductions.push('Contractor bid is 15-25% below realistic budget'); }
+    else if (gapPct > 0.05) { budgetDeduction = 6;  deductions.push('Contractor bid is 5-15% below realistic budget'); }
+    else if (gapPct < -0.1) { budgetDeduction = 5;  deductions.push('Contractor bid may be inflated vs market'); }
+  } else {
+    budgetDeduction = 10;
+    deductions.push('Insufficient financial data to assess budget risk');
+  }
+  score -= budgetDeduction;
+  breakdown.push({ category: 'Budget Risk', maxPts: 30, deducted: budgetDeduction, result: 30 - budgetDeduction });
+
+  // ── 2. SCOPE COMPLETENESS (max 25 pts) ────────────
+  let scopeDeduction = 0;
+  const missingCount = parseInt(s.missingItemsCount) || (report.missingItems||[]).length;
+  if (missingCount >= 8)      { scopeDeduction = 25; deductions.push(`${missingCount} missing scope items — critically incomplete bid`); }
+  else if (missingCount >= 6) { scopeDeduction = 20; deductions.push(`${missingCount} missing scope items — severely incomplete`); }
+  else if (missingCount >= 4) { scopeDeduction = 14; deductions.push(`${missingCount} missing scope items — significant gaps`); }
+  else if (missingCount >= 2) { scopeDeduction = 8;  deductions.push(`${missingCount} missing scope items — moderate gaps`); }
+  else if (missingCount === 1){ scopeDeduction = 3;  deductions.push('1 missing scope item'); }
+  score -= scopeDeduction;
+  breakdown.push({ category: 'Scope Completeness', maxPts: 25, deducted: scopeDeduction, result: 25 - scopeDeduction });
+
+  // ── 3. SYSTEMS RISK (max 20 pts) ──────────────────
+  let sysDeduction = 0;
+  const roofCond   = formData.roofCond   || '';
+  const hvacCond   = formData.hvacCond   || '';
+  const elecCond   = formData.elecCond   || '';
+  const foundCond  = formData.foundCond  || '';
+  const roofAge    = parseInt(formData.roofAge)  || 0;
+  const hvacAge    = parseInt(formData.hvacAge)  || 0;
+  const whAge      = parseInt(formData.whAge)    || 0;
+
+  // Roof
+  if (roofCond.includes('Poor'))               { sysDeduction += 6; deductions.push('Roof in poor condition'); }
+  else if (roofCond.includes('Not Inspected')) { sysDeduction += 4; deductions.push('Roof not inspected — unknown condition'); }
+  else if (roofAge > 20)                       { sysDeduction += 3; deductions.push('Roof over 20 years old'); }
+  else if (roofCond.includes('Unknown'))       { sysDeduction += 3; deductions.push('Roof condition unknown'); }
+
+  // HVAC
+  if (hvacCond.includes('replacement'))        { sysDeduction += 4; deductions.push('HVAC needs replacement'); }
+  else if (hvacCond.includes('repair'))        { sysDeduction += 2; deductions.push('HVAC needs repair'); }
+  else if (hvacAge > 15)                       { sysDeduction += 2; deductions.push('HVAC over 15 years old'); }
+  else if (hvacCond.includes('Unknown'))       { sysDeduction += 2; deductions.push('HVAC condition unknown'); }
+
+  // Electrical
+  if (elecCond.includes('Federal Pacific') || elecCond.includes('Zinsco')) {
+    sysDeduction += 5; deductions.push('Hazardous electrical panel — Federal Pacific or Zinsco');
+  } else if (elecCond.includes('upgrade'))     { sysDeduction += 3; deductions.push('Electrical panel needs upgrade'); }
+  else if (elecCond.includes('Unknown'))       { sysDeduction += 2; deductions.push('Electrical condition unknown'); }
+
+  // Water heater
+  if (whAge > 15)                              { sysDeduction += 2; deductions.push('Water heater over 15 years old'); }
+
+  // Foundation
+  if (foundCond.includes('Known issues'))      { sysDeduction += 5; deductions.push('Known foundation issues'); }
+  else if (foundCond.includes('Not Inspected')){ sysDeduction += 3; deductions.push('Foundation not inspected'); }
+  else if (foundCond.includes('inspection'))   { sysDeduction += 2; deductions.push('Foundation needs inspection'); }
+
+  sysDeduction = Math.min(sysDeduction, 20);
+  score -= sysDeduction;
+  breakdown.push({ category: 'Systems Risk', maxPts: 20, deducted: sysDeduction, result: 20 - sysDeduction });
+
+  // ── 4. DEAL MATH (max 15 pts) ─────────────────────
+  let mathDeduction = 0;
+  if (arvRaw > 0 && purchaseRaw > 0 && realisticBudget > 0) {
+    const totalCost  = purchaseRaw + realisticBudget;
+    const margin     = arvRaw - totalCost;
+    const marginPct  = margin / arvRaw;
+    if (marginPct < 0)       { mathDeduction = 15; deductions.push('Deal is underwater — costs exceed ARV'); }
+    else if (marginPct < 0.1){ mathDeduction = 12; deductions.push('Margin below 10% — very thin deal'); }
+    else if (marginPct < 0.2){ mathDeduction = 7;  deductions.push('Margin below 20% — tight deal'); }
+    else if (marginPct < 0.3){ mathDeduction = 3;  deductions.push('Margin below 30% — acceptable but monitor'); }
+  } else {
+    mathDeduction = 5;
+    deductions.push('Incomplete financial data — ARV or purchase price missing');
+  }
+  score -= mathDeduction;
+  breakdown.push({ category: 'Deal Math', maxPts: 15, deducted: mathDeduction, result: 15 - mathDeduction });
+
+  // ── 5. TIMELINE & FINANCING RISK (max 10 pts) ─────
+  let timeDeduction = 0;
+  const financing  = formData.financing || '';
+  const knownIssues = formData.knownIssues || [];
+
+  if (financing.includes('Hard Money')) {
+    const overpriced   = parseInt(s.overPricedItemsCount)  || 0;
+    const underpricedC = parseInt(s.underPricedItemsCount) || 0;
+    if (missingCount > 4)    { timeDeduction += 5; deductions.push('Hard money + 4+ missing items = high timeline risk'); }
+    else if (missingCount > 2){ timeDeduction += 3; deductions.push('Hard money with missing scope items'); }
+    else                     { timeDeduction += 1; deductions.push('Hard money financing — timeline pressure'); }
+  }
+
+  // Known hazardous issues
+  const hazards = knownIssues.filter(i =>
+    i.includes('Mold') || i.includes('asbestos') || i.includes('Lead') ||
+    i.includes('Termite') || i.includes('fire') || i.includes('Fire')
+  );
+  if (hazards.length >= 2) { timeDeduction += 4; deductions.push('Multiple environmental hazards present'); }
+  else if (hazards.length === 1) { timeDeduction += 2; deductions.push('Environmental hazard present: ' + hazards[0]); }
+
+  timeDeduction = Math.min(timeDeduction, 10);
+  score -= timeDeduction;
+  breakdown.push({ category: 'Timeline & Hazard Risk', maxPts: 10, deducted: timeDeduction, result: 10 - timeDeduction });
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  let grade, color, bg, recommendation;
+  if (score >= 85)      { grade = 'A'; color = '#2D7A4F'; bg = '#E8F5EE'; recommendation = 'APPROVE — Strong deal with manageable risk'; }
+  else if (score >= 70) { grade = 'B'; color = '#1A5F9E'; bg = '#EBF3FB'; recommendation = 'CONDITIONAL APPROVE — Address flagged items before proceeding'; }
+  else if (score >= 55) { grade = 'C'; color = '#92650A'; bg = '#FEF9E7'; recommendation = 'HIGH RISK — Require contractor revision and re-bid'; }
+  else if (score >= 40) { grade = 'D'; color = '#C0392B'; bg = '#FDECEA'; recommendation = 'DO NOT APPROVE — Major scope and budget issues'; }
+  else                  { grade = 'F'; color = '#7B0000'; bg = '#FDECEA'; recommendation = 'REJECT — Deal fundamentals do not support investment'; }
+
+  return { score, grade, color, bg, recommendation, breakdown, deductions };
 }
 
 // ── UTILITIES ──────────────────────────────────
