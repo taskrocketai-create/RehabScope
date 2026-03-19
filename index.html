@@ -328,6 +328,12 @@
     <div class="panel-title">New Analysis</div>
     <div class="panel-sub">Complete all sections for the most accurate analysis</div>
 
+    <div style="background:rgba(232,160,32,0.1);border:1.5px solid var(--amber);border-radius:10px;padding:1rem;margin-bottom:1.25rem;">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber-dk);margin-bottom:0.4rem;">🔑 Anthropic API Key Required</div>
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." onchange="if(this.value.startsWith('sk-ant-')){localStorage.setItem('rs_api_key',this.value);}" style="font-family:var(--font);font-size:0.85rem;font-weight:600;padding:0.65rem 0.85rem;border:1.5px solid var(--amber);border-radius:8px;background:var(--white);color:var(--black);outline:none;width:100%;box-sizing:border-box;"/>
+      <div style="font-size:0.7rem;font-weight:600;color:var(--gray);margin-top:0.4rem;">Your key is used only in your browser — never stored on any server.</div>
+    </div>
+
     <!-- SECTION 1: CLIENT & PROPERTY -->
     <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:var(--amber);margin-bottom:0.75rem;padding-bottom:0.4rem;border-bottom:2px solid var(--amber);">1. Client & Property</div>
 
@@ -664,6 +670,13 @@ let files   = [];
 let lastReport = null;
 let lastMeta   = null;
 
+// Auto-load saved API key on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('rs_api_key');
+  const inp   = document.getElementById('api-key-input');
+  if (saved && inp) inp.value = saved;
+});
+
 // ── FILE HANDLING ──────────────────────────────
 const dropEl = document.getElementById('drop');
 dropEl.addEventListener('dragover',  e => { e.preventDefault(); dropEl.classList.add('over'); });
@@ -705,16 +718,15 @@ function toggle(head) {
 
 // ── RUN ANALYSIS ───────────────────────────────
 async function runAnalysis() {
-  // Check for API key
-  if (!window._rsKey) {
-    const key = localStorage.getItem('rs_api_key') || prompt('Enter your Anthropic API key (sk-ant-...):\n\nThis is stored only in your browser and never sent to any server except Anthropic directly.');
-    if (!key || !key.startsWith('sk-ant-')) {
-      alert('A valid Anthropic API key is required. It should start with sk-ant-');
-      return;
-    }
-    window._rsKey = key;
-    localStorage.setItem('rs_api_key', key);
+  // Get API key from input field
+  const keyInput = document.getElementById('api-key-input');
+  const apiKeyVal = keyInput ? keyInput.value.trim() : '';
+  if (!apiKeyVal || !apiKeyVal.startsWith('sk-ant-')) {
+    alert('Please enter your Anthropic API key in the field at the top of the form. It starts with sk-ant-');
+    if (keyInput) keyInput.focus();
+    return;
   }
+  window._rsKey = apiKeyVal;
 
   // Collect all form fields
   const client      = document.getElementById('f-client').value.trim();
@@ -823,55 +835,32 @@ Return this exact JSON (keep responses brief to fit in token limit):
       raw = data.content.filter(c => c.type === 'text').map(c => c.text || '').join('');
     }
 
-    document.getElementById('debug-text').textContent = 'LENGTH: ' + raw.length + '\n\nFIRST 300:\n' + raw.slice(0, 300);
-    document.getElementById('debug-box').style.display = 'block';
+    // Debug info logged to console only
+    console.log('Raw length:', raw.length, 'First 100:', raw.substring(0, 100));
 
     let report;
     try {
       let jsonStr = raw.trim();
 
-      // Strip ```json or ``` from start (with or without space/newline after)
-      while (jsonStr.startsWith('`')) { jsonStr = jsonStr.slice(1); }
-      if (jsonStr.toLowerCase().startsWith('json')) { jsonStr = jsonStr.slice(4); }
+      // Remove ALL backticks and the word "json" from the start
+      while (jsonStr.charAt(0) === '`') jsonStr = jsonStr.substring(1);
+      if (jsonStr.substring(0, 4).toLowerCase() === 'json') jsonStr = jsonStr.substring(4);
       jsonStr = jsonStr.trim();
 
-      // Strip trailing ``` if present
-      while (jsonStr.endsWith('`')) { jsonStr = jsonStr.slice(0, -1); }
+      // Remove trailing backticks
+      while (jsonStr.charAt(jsonStr.length - 1) === '`') jsonStr = jsonStr.substring(0, jsonStr.length - 1);
       jsonStr = jsonStr.trim();
 
-      // Find outermost { ... }
-      const firstBrace = jsonStr.indexOf('{');
-      let lastBrace    = jsonStr.lastIndexOf('}');
-
-      if (firstBrace === -1) throw new Error('No JSON object found in response');
-
-      // If no closing brace (truncated), try to close it
-      if (lastBrace <= firstBrace) {
-        console.log('JSON appears truncated - attempting repair');
-        jsonStr = jsonStr.slice(firstBrace);
-        // Count open braces to determine how many need closing
-        let open = 0, inStr = false, escape = false;
-        for (let i = 0; i < jsonStr.length; i++) {
-          const c = jsonStr[i];
-          if (escape) { escape = false; continue; }
-          if (c === '\\') { escape = true; continue; }
-          if (c === '"' && !escape) { inStr = !inStr; continue; }
-          if (!inStr) {
-            if (c === '{' || c === '[') open++;
-            if (c === '}' || c === ']') open--;
-          }
-        }
-        // Add missing closing braces
-        while (open > 0) { jsonStr += '}'; open--; }
-      } else {
-        jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
-      }
+      // Extract from first { to last }
+      const fb = jsonStr.indexOf('{');
+      const lb = jsonStr.lastIndexOf('}');
+      if (fb !== -1 && lb > fb) jsonStr = jsonStr.substring(fb, lb + 1);
 
       report = JSON.parse(jsonStr);
-      console.log('JSON parsed OK, keys:', Object.keys(report));
+      console.log('Parsed OK:', Object.keys(report));
 
-    } catch(parseErr) {
-      console.log('JSON parse failed:', parseErr.message);
+    } catch(e) {
+      console.log('Parse error:', e.message, 'raw[0..100]:', raw.substring(0, 100));
       report = {
         summary: {
           contractorBid: bid,
@@ -881,7 +870,7 @@ Return this exact JSON (keep responses brief to fit in token limit):
           missingItemsCount: 0,
           overPricedItemsCount: 0,
           underPricedItemsCount: 0,
-          overallVerdict: 'Analysis complete — see narrative below.'
+          overallVerdict: 'See narrative below.'
         },
         lineItems: [], missingItems: [], recommendations: [], sequencingIssues: [],
         narrative: raw
