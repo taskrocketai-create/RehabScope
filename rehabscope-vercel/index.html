@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RehabScope™ AI Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --black:    #111111;
+      --white:    #FFFFFF;
+      --cream:    #FFFDF7;
+      --amber:    #E8A020;
+      --amber-lt: #F5BE58;
+      --amber-dk: #C4840A;
+      --green:    #2D7A4F;
+      --green-lt: #E8F5EE;
+      --blue:     #1A5F9E;
+      --blue-lt:  #EBF3FB;
+      --red:      #C0392B;
+      --red-lt:   #FDECEA;
+      --purple:   #6B3FA0;
+      --purple-lt:#F3EEFF;
+      --slate:    #2C3A4A;
+      --gray:     #6B7280;
+      --gray-lt:  #F3F4F6;
+      --border:   #E5E7EB;
+      --font:     'Plus Jakarta Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font); background: var(--gray-lt);
+      color: var(--black); min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--black); border-bottom: 3px solid var(--amber);
+      padding: 0 2rem; height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-weight: 900; font-size: 1.2rem; color: var(--white); letter-spacing: -0.02em; }
+    .logo span { color: var(--amber); }
+    .logo-badge {
+      background: var(--purple); color: var(--white);
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0.22rem 0.65rem; border-radius: 100px; margin-left: 0.75rem;
+    }
+    header p { font-size: 0.8rem; font-weight: 700; color: #94A3B8; }
+
+    /* LAYOUT */
+    .app {
+      max-width: 1280px; margin: 0 auto; padding: 2rem;
+      display: grid; grid-template-columns: 400px 1fr; gap: 1.5rem; align-items: start;
+    }
+
+    /* INPUT PANEL */
+    .input-panel {
+      background: var(--white); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 1.75rem;
+      position: sticky; top: 76px;
+    }
+    .panel-title { font-weight: 900; font-size: 1rem; color: var(--black); margin-bottom: 0.25rem; }
+    .panel-sub   { font-size: 0.8rem; font-weight: 600; color: var(--gray); margin-bottom: 1.5rem; }
+
+    /* FORM */
+    .fg { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; }
+    .fg label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--slate); }
+    .fg input, .fg select, .fg textarea {
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600;
+      padding: 0.7rem 0.9rem; border: 1.5px solid var(--border);
+      border-radius: 8px; background: var(--cream); color: var(--black); outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .fg input:focus, .fg select:focus, .fg textarea:focus {
+      border-color: var(--amber); box-shadow: 0 0 0 3px rgba(232,160,32,0.12);
+    }
+    .fg textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
+    .fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+    /* FILE DROP */
+    .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 1.25rem; text-align: center; position: relative; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 0.9rem; }
+    .drop:hover, .drop.over { border-color: var(--amber); background: rgba(232,160,32,0.03); }
+    .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .drop h4 { font-weight: 800; font-size: 0.88rem; color: var(--black); margin-bottom: 0.2rem; }
+    .drop p  { font-size: 0.76rem; font-weight: 600; color: var(--gray); }
+    .drop span { color: var(--amber-dk); font-weight: 800; }
+    .file-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.9rem; }
+    .file-chip {
+      display: flex; align-items: center; gap: 0.6rem;
+      background: var(--green-lt); border: 1px solid #B2DFCC;
+      border-radius: 7px; padding: 0.45rem 0.75rem;
+      font-size: 0.8rem; font-weight: 700; color: var(--green);
+    }
+    .file-chip .rm { margin-left: auto; cursor: pointer; opacity: 0.5; }
+    .file-chip .rm:hover { opacity: 1; }
+
+    /* ANALYZE BUTTON */
+    .run-btn {
+      width: 100%; padding: 0.95rem; border: none; border-radius: 10px;
+      background: var(--amber); color: var(--black);
+      font-family: var(--font); font-weight: 900; font-size: 1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      box-shadow: 0 4px 20px rgba(232,160,32,0.35);
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .run-btn:hover:not(:disabled) { background: var(--amber-lt); transform: translateY(-1px); }
+    .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* PROGRESS */
+    .progress { background: var(--black); border-radius: 10px; padding: 1.1rem 1.25rem; margin-top: 1rem; display: none; }
+    .ps { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; font-weight: 700; color: #6B7280; padding: 0.28rem 0; transition: color 0.3s; }
+    .ps.active { color: var(--amber-lt); }
+    .ps.done   { color: #5cb85c; }
+    .ps-dot { width: 7px; height: 7px; border-radius: 50%; background: #333; flex-shrink: 0; transition: background 0.3s; }
+    .ps.active .ps-dot { background: var(--amber); }
+    .ps.done   .ps-dot { background: #5cb85c; }
+
+    /* OUTPUT PANEL */
+    .output-panel { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* EMPTY STATE */
+    .empty {
+      background: var(--white); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 4rem 2rem; text-align: center;
+    }
+    .empty-icon {
+      width: 60px; height: 60px; border-radius: 14px;
+      background: rgba(232,160,32,0.1); color: var(--amber);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 1.1rem;
+    }
+    .empty h3 { font-weight: 900; font-size: 1.15rem; margin-bottom: 0.5rem; }
+    .empty p  { font-size: 0.9rem; font-weight: 600; color: var(--gray); line-height: 1.65; max-width: 360px; margin: 0 auto; }
+
+    /* REPORT SECTIONS */
+    .report-header {
+      background: var(--black); border-radius: 14px;
+      padding: 1.75rem 2rem; border-top: 4px solid var(--amber);
+    }
+    .rh-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .rh-title { font-weight: 900; font-size: 1.4rem; color: var(--white); letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+    .rh-meta  { font-size: 0.8rem; color: #94A3B8; font-weight: 600; }
+    .rh-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .act-btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-family: var(--font); font-size: 0.78rem; font-weight: 800;
+      padding: 0.5rem 1rem; border-radius: 8px; border: none; cursor: pointer;
+      transition: background 0.15s, transform 0.15s; text-decoration: none; letter-spacing: 0.01em;
+    }
+    .act-btn:hover { transform: translateY(-1px); }
+    .btn-ghost { background: rgba(255,255,255,0.09); color: var(--white); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.16); }
+    .btn-amber2 { background: var(--amber); color: var(--black); }
+    .btn-amber2:hover { background: var(--amber-lt); }
+    .btn-danger { background: rgba(192,57,43,0.2); color: #e88; }
+    .btn-danger:hover { background: rgba(192,57,43,0.35); }
+
+    /* SCORE GRID */
+    .score-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.6rem; }
+    .score-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 1rem; text-align: center; }
+    .score-val { font-weight: 900; font-size: 1.7rem; letter-spacing: -0.02em; line-height: 1; margin-bottom: 0.25rem; }
+    .score-lbl { font-size: 0.68rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.08em; }
+    .sv-white  { color: var(--white); }
+    .sv-amber  { color: var(--amber); }
+    .sv-red    { color: #e87; }
+    .sv-green  { color: #6c6; }
+
+    /* CARD SECTION */
+    .sec-card {
+      background: var(--white); border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden;
+    }
+    .sec-head {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 1rem 1.4rem; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background 0.15s; user-select: none;
+    }
+    .sec-head:hover { background: var(--gray-lt); }
+    .sec-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sec-title { font-weight: 800; font-size: 0.93rem; color: var(--black); flex: 1; }
+    .sec-badge {
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.2rem 0.65rem; border-radius: 100px;
+    }
+    .bd-red    { background: var(--red-lt);   color: var(--red); }
+    .bd-amber  { background: rgba(232,160,32,0.12); color: var(--amber-dk); }
+    .bd-green  { background: var(--green-lt); color: var(--green); }
+    .bd-gray   { background: var(--gray-lt);  color: var(--gray); }
+    .bd-blue   { background: var(--blue-lt);  color: var(--blue); }
+    .chevron { color: var(--gray); transition: transform 0.2s; }
+    .chevron.open { transform: rotate(180deg); }
+    .sec-body { padding: 1.5rem; display: none; }
+    .sec-body.open { display: block; }
+
+    /* SUMMARY BOX */
+    .sum-box {
+      background: var(--slate); border-radius: 10px; padding: 1.4rem; margin-bottom: 1rem;
+    }
+    .sum-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.07);
+      font-size: 0.88rem;
+    }
+    .sum-row:last-child { border-bottom: none; }
+    .sum-lbl { font-weight: 600; color: #94A3B8; }
+    .sum-val { font-weight: 900; color: var(--white); }
+    .sum-val.red   { color: #e87; }
+    .sum-val.amber { color: var(--amber-lt); }
+    .verdict-box {
+      background: var(--gray-lt); border-radius: 8px; padding: 0.9rem 1rem;
+      font-size: 0.9rem; font-weight: 700; color: var(--slate); line-height: 1.6;
+    }
+
+    /* LINE ITEMS TABLE */
+    .li-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .li-table th {
+      text-align: left; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--gray); padding: 0.5rem 0.75rem;
+      border-bottom: 2px solid var(--border); background: var(--gray-lt);
+    }
+    .li-table td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .li-table tr:last-child td { border-bottom: none; }
+    .li-table tr:hover td { background: var(--cream); }
+    .td-item { font-weight: 700; color: var(--black); }
+    .td-num  { font-weight: 700; color: var(--slate); white-space: nowrap; }
+    .td-note { font-size: 0.78rem; color: var(--gray); }
+    .st-badge {
+      font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.18rem 0.65rem; border-radius: 100px; white-space: nowrap;
+    }
+
+    /* MISSING / REC ITEMS */
+    .miss-item {
+      display: flex; gap: 0.75rem; align-items: flex-start;
+      background: var(--red-lt); border: 1px solid #FADBD8;
+      border-left: 4px solid var(--red); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 0.6rem;
+    }
+    .miss-item svg { color: var(--red); flex-shrink: 0; margin-top: 1px; }
+    .miss-title  { font-size: 0.9rem; font-weight: 800; color: #7B241C; margin-bottom: 0.15rem; }
+    .miss-detail { font-size: 0.79rem; font-weight: 600; color: #a05050; line-height: 1.5; }
+
+    .rec-item {
+      display: flex; gap: 0.75rem; align-items: flex-start;
+      border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 0.6rem; border: 1px solid;
+    }
+    .rec-item.high   { background: var(--red-lt);   border-color: #FADBD8; border-left: 4px solid var(--red); }
+    .rec-item.medium { background: rgba(232,160,32,0.07); border-color: rgba(232,160,32,0.25); border-left: 4px solid var(--amber); }
+    .rec-item.low    { background: var(--green-lt); border-color: #B2DFCC; border-left: 4px solid var(--green); }
+    .rec-num  { font-weight: 900; font-size: 0.8rem; color: var(--gray); flex-shrink: 0; margin-top: 2px; min-width: 18px; }
+    .rec-text { font-size: 0.88rem; font-weight: 800; color: var(--black); margin-bottom: 0.2rem; line-height: 1.4; }
+    .rec-why  { font-size: 0.78rem; font-weight: 600; color: var(--gray); line-height: 1.5; }
+
+    .seq-item {
+      background: rgba(232,160,32,0.07); border: 1px solid rgba(232,160,32,0.25);
+      border-left: 4px solid var(--amber); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 0.6rem;
+    }
+    .seq-issue  { font-size: 0.9rem; font-weight: 800; color: var(--black); margin-bottom: 0.2rem; }
+    .seq-impact { font-size: 0.79rem; font-weight: 600; color: var(--gray); line-height: 1.5; }
+
+    /* NARRATIVE EDITOR */
+    .nar-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.5rem; }
+    .nar-edit {
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600; line-height: 1.75;
+      color: var(--black); border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 1.1rem; min-height: 200px; outline: none; background: var(--cream);
+      white-space: pre-wrap;
+    }
+    .nar-edit:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(232,160,32,0.1); }
+    .nar-actions { display: flex; gap: 0.6rem; margin-top: 0.9rem; flex-wrap: wrap; }
+
+    /* APPROVE BAR */
+    .approve-bar {
+      background: var(--green); border-radius: 14px; padding: 1.5rem 2rem;
+      display: none; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+    .approve-bar.show { display: flex; }
+    .approve-bar h3 { font-weight: 900; font-size: 1rem; color: var(--white); margin-bottom: 0.2rem; }
+    .approve-bar p  { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.75); }
+    .approve-btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-family: var(--font); font-weight: 900; font-size: 0.95rem;
+      background: var(--white); color: var(--green);
+      border: none; border-radius: 10px; padding: 0.85rem 1.75rem;
+      cursor: pointer; white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transition: background 0.15s, transform 0.15s;
+    }
+    .approve-btn:hover:not(:disabled) { background: var(--cream); transform: translateY(-1px); }
+    .approve-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    .spin { animation: spin 0.85s linear infinite; display: inline-block; }
+    .fade { animation: fadeUp 0.4s ease both; }
+
+    @media (max-width: 960px) { .app { grid-template-columns: 1fr; } .input-panel { position: static; } }
+    @media (max-width: 600px) { .app { padding: 1rem; } header { padding: 0 1rem; } .score-grid { grid-template-columns: repeat(2,1fr); } .fg-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <div class="logo">Rehab<span>Scope™</span></div>
+    <span class="logo-badge">AI Analyzer</span>
+  </div>
+  <p>Internal Tool — Not Client Facing</p>
+</header>
+
+<div class="app">
+
+  <!-- ══ INPUT PANEL ══ -->
+  <div class="input-panel">
+    <div class="panel-title">New Analysis</div>
+    <div class="panel-sub">Fill in project details and paste the contractor's bid</div>
+
+    <div class="fg-row">
+      <div class="fg">
+        <label>Client Name</label>
+        <input type="text" id="f-client" placeholder="e.g. John Smith"/>
+      </div>
+      <div class="fg">
+        <label>Market / State</label>
+        <input type="text" id="f-market" placeholder="e.g. NC, TX"/>
+      </div>
+    </div>
+
+    <div class="fg">
+      <label>Property Address</label>
+      <input type="text" id="f-address" placeholder="123 Main St, Durham, NC 27701"/>
+    </div>
+
+    <div class="fg-row">
+      <div class="fg">
+        <label>Property Type</label>
+        <select id="f-type">
+          <option value="">Select...</option>
+          <option>Single Family</option>
+          <option>Duplex</option>
+          <option>Multi-Unit (3-4)</option>
+          <option>Small Apartment (5+)</option>
+          <option>Condo / Townhome</option>
+          <option>Commercial</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Square Footage</label>
+        <input type="number" id="f-sqft" placeholder="e.g. 1800"/>
+      </div>
+    </div>
+
+    <div class="fg-row">
+      <div class="fg">
+        <label>Contractor's Total Bid</label>
+        <input type="text" id="f-bid" placeholder="e.g. $38,500"/>
+      </div>
+      <div class="fg">
+        <label>Package</label>
+        <select id="f-pkg">
+          <option>RehabScope™ Review</option>
+          <option selected>RehabScope™ Pro</option>
+          <option>RehabScope™ Elite</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fg">
+      <label>Paste Contractor Scope / Bid</label>
+      <textarea id="f-scope" placeholder="Paste the full contractor scope of work and bid here. The more detail, the better.&#10;&#10;Example:&#10;1. Demo kitchen — $2,000&#10;2. Install cabinets — $4,500&#10;..."></textarea>
+    </div>
+
+    <div class="drop" id="drop">
+      <input type="file" id="file-inp" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" onchange="handleFiles(this.files)"/>
+      <h4>Drop files or <span>browse</span></h4>
+      <p>PDF, Word, Excel, Photos (optional)</p>
+    </div>
+    <div class="file-list" id="file-list"></div>
+
+    <div class="fg">
+      <label>Additional Context (optional)</label>
+      <textarea id="f-notes" style="min-height:80px;" placeholder="Year built, known issues, ARV, exit strategy, hard money terms, etc."></textarea>
+    </div>
+
+    <button class="run-btn" id="run-btn" onclick="runAnalysis()">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      Run AI Analysis
+    </button>
+
+    <div class="progress" id="progress">
+      <div class="ps" id="ps1"><div class="ps-dot"></div> Reading contractor documents</div>
+      <div class="ps" id="ps2"><div class="ps-dot"></div> Extracting line items &amp; pricing</div>
+      <div class="ps" id="ps3"><div class="ps-dot"></div> Benchmarking national cost data</div>
+      <div class="ps" id="ps4"><div class="ps-dot"></div> Identifying missing scope items</div>
+      <div class="ps" id="ps5"><div class="ps-dot"></div> Generating RehabScope report</div>
+    </div>
+  </div>
+
+  <!-- ══ OUTPUT PANEL ══ -->
+  <div class="output-panel" id="output">
+
+    <div id="debug-box" style="display:none;background:#1a1a2e;border:2px solid #E8A020;border-radius:10px;padding:1.25rem;margin-bottom:1rem;font-family:monospace;font-size:0.78rem;color:#E8A020;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;">
+      <strong style="color:#fff;">DEBUG — Raw API Response:</strong><br/><span id="debug-text"></span>
+    </div>
+    <div class="empty" id="empty-state">
+      <div class="empty-icon">
+        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h3>Ready to Analyze</h3>
+      <p>Fill in the project details on the left and paste the contractor's scope. Your draft RehabScope report will appear here.</p>
+    </div>
+
+    <!-- All report sections injected here by JS -->
+    <div id="report-area" style="display:none;">
+
+      <!-- Report header -->
+      <div class="report-header fade" id="rpt-hdr">
+        <div class="rh-top">
+          <div>
+            <div class="rh-title" id="rpt-title">RehabScope™ Report</div>
+            <div class="rh-meta"  id="rpt-meta"></div>
+          </div>
+          <div class="rh-actions">
+            <button class="act-btn btn-ghost" onclick="copyFullReport()">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy All
+            </button>
+            <button class="act-btn btn-danger" onclick="resetAll()">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              New Analysis
+            </button>
+          </div>
+        </div>
+        <div class="score-grid" id="score-grid"></div>
+      </div>
+
+      <!-- Dynamic sections -->
+      <div id="sections"></div>
+
+      <!-- Narrative editor -->
+      <div class="sec-card fade">
+        <div class="sec-head" onclick="toggle(this)">
+          <div class="sec-icon" style="background:var(--purple-lt);color:var(--purple);">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </div>
+          <span class="sec-title">Report Narrative — Edit Before Approving</span>
+          <span class="sec-badge bd-gray">Editable</span>
+          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="sec-body open">
+          <div class="nar-label">Click anywhere in the text below to edit before generating the final report</div>
+          <div class="nar-edit" id="narrative" contenteditable="true"></div>
+          <div class="nar-actions">
+            <button class="act-btn btn-ghost" style="background:var(--gray-lt);color:var(--slate);" onclick="copyNarrative()">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy Narrative
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Approve bar -->
+      <div class="approve-bar" id="approve-bar">
+        <div>
+          <h3>Happy with the analysis?</h3>
+          <p>Review all sections and edit the narrative above, then generate the final client report.</p>
+        </div>
+        <button class="approve-btn" id="approve-btn" onclick="generateReport()">
+          <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Approve &amp; Generate Client Report
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────
+let files   = [];
+let lastReport = null;
+let lastMeta   = null;
+
+// ── FILE HANDLING ──────────────────────────────
+const dropEl = document.getElementById('drop');
+dropEl.addEventListener('dragover',  e => { e.preventDefault(); dropEl.classList.add('over'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('over'));
+dropEl.addEventListener('drop', e => { e.preventDefault(); dropEl.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(fl) {
+  Array.from(fl).forEach(f => { if (!files.find(x => x.name === f.name)) files.push(f); });
+  renderFiles();
+}
+function removeFile(i) { files.splice(i, 1); renderFiles(); }
+function renderFiles() {
+  document.getElementById('file-list').innerHTML = files.map((f,i) => `
+    <div class="file-chip">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      ${f.name} <span style="opacity:.55;font-size:.72rem;">(${(f.size/1024/1024).toFixed(1)}MB)</span>
+      <span class="rm" onclick="removeFile(${i})">✕</span>
+    </div>`).join('');
+}
+
+// ── PROGRESS ───────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('ps' + i);
+    el.classList.remove('active','done');
+    if (i < n)      el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── TOGGLE SECTIONS ────────────────────────────
+function toggle(head) {
+  const body    = head.nextElementSibling;
+  const chevron = head.querySelector('.chevron');
+  const open    = body.classList.toggle('open');
+  chevron.classList.toggle('open', open);
+}
+
+// ── RUN ANALYSIS ───────────────────────────────
+async function runAnalysis() {
+  const client  = document.getElementById('f-client').value.trim();
+  const market  = document.getElementById('f-market').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+  const type    = document.getElementById('f-type').value;
+  const sqft    = document.getElementById('f-sqft').value.trim();
+  const bid     = document.getElementById('f-bid').value.trim();
+  const pkg     = document.getElementById('f-pkg').value;
+  const scope   = document.getElementById('f-scope').value.trim();
+  const notes   = document.getElementById('f-notes').value.trim();
+
+  if (!scope && files.length === 0) { alert('Please paste the contractor scope or upload at least one document.'); return; }
+  if (!address) { alert('Please enter the property address.'); return; }
+
+  lastMeta = { client, market, address, type, sqft, bid, pkg };
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⏳</span> Analyzing...';
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('report-area').style.display = 'none';
+  document.getElementById('approve-bar').classList.remove('show');
+
+  const prog = document.getElementById('progress');
+  prog.style.display = 'block';
+
+  setStep(1); await delay(600);
+  setStep(2); await delay(700);
+  setStep(3); await delay(800);
+  setStep(4); await delay(600);
+  setStep(5);
+
+  const prompt = `You are a senior construction cost estimator and rehab scope reviewer with 20+ years of US residential real estate investment experience.
+
+PROJECT DETAILS:
+- Client: ${client || 'Not provided'}
+- Property: ${address}
+- Type: ${type || 'Not specified'}
+- Size: ${sqft ? sqft + ' sq ft' : 'Not provided'}
+- Contractor Bid: ${bid}
+- Market: ${market || 'National'}
+- Package: ${pkg}
+
+CONTRACTOR SCOPE / BID:
+${scope}
+
+${notes ? 'ADDITIONAL CONTEXT:\n' + notes : ''}
+
+CRITICAL RULES:
+- Your ENTIRE response must be ONE valid JSON object
+- Start with { and end with }
+- No text before or after the JSON
+- No markdown code blocks
+
+{
+  "summary": {
+    "contractorBid": "${bid}",
+    "estimatedRealisticBudget": "realistic range e.g. $55,000 - $70,000",
+    "budgetVariance": "e.g. +$16,500 to +$31,500",
+    "riskLevel": "Low | Medium | High | Critical",
+    "missingItemsCount": 0,
+    "overPricedItemsCount": 0,
+    "underPricedItemsCount": 0,
+    "overallVerdict": "One clear sentence verdict on this bid"
+  },
+  "lineItems": [
+    {"item": "item name", "bidAmount": "$X,XXX", "marketLow": "$X,XXX", "marketHigh": "$X,XXX", "status": "Reasonable | Overpriced | Underpriced | Missing", "flag": "brief note"}
+  ],
+  "missingItems": [
+    {"item": "missing item", "estimatedCost": "$X,XXX - $X,XXX", "reason": "why required"}
+  ],
+  "recommendations": [
+    {"priority": "High | Medium | Low", "recommendation": "specific action", "why": "explanation"}
+  ],
+  "sequencingIssues": [
+    {"issue": "problem description", "impact": "cost or timeline impact"}
+  ],
+  "narrative": "Write 3-4 paragraphs as the expert reviewer addressing the investor directly. Cover: what you found, key concerns, revised budget estimate, and clear next steps. Professional but plain language."
+}
+
+Use real national pricing data for ${market || 'US'} ${type || 'residential'} properties. Be thorough — flag everything that matters.`;
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    console.log('API response status:', res.status);
+    console.log('API response data:', JSON.stringify(data).slice(0, 500));
+    if (data.error) {
+      document.getElementById('debug-text').textContent = 'API ERROR: ' + JSON.stringify(data.error);
+      document.getElementById('debug-box').style.display = 'block';
+      throw new Error('API Error: ' + (data.error.message || JSON.stringify(data.error)));
+    }
+    const raw  = (data.content || []).map(c => c.text || '').join('');
+    console.log('Raw response length:', raw.length);
+    console.log('Raw response preview:', raw.slice(0, 300));
+    // Show debug box
+    document.getElementById('debug-text').textContent = 'LENGTH: ' + raw.length + '\n\nFIRST 500 CHARS:\n' + raw.slice(0, 500) + '\n\nLAST 200 CHARS:\n' + raw.slice(-200);
+    document.getElementById('debug-box').style.display = 'block';
+
+    let report;
+    try {
+      // Try multiple extraction strategies
+      let jsonStr = raw;
+      // Remove markdown code blocks
+      jsonStr = jsonStr.replace(/```json\s*/gi, '').replace(/```\s*/gi, '');
+      // Find the outermost JSON object
+      const firstBrace = jsonStr.indexOf('{');
+      const lastBrace  = jsonStr.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+      }
+      report = JSON.parse(jsonStr);
+    } catch(parseErr) {
+      // If JSON parsing fails, show the raw text in narrative
+      report = {
+        summary: {
+          contractorBid: bid,
+          estimatedRealisticBudget: 'See narrative below',
+          budgetVariance: 'See narrative',
+          riskLevel: 'Medium',
+          missingItemsCount: '?',
+          overPricedItemsCount: '?',
+          underPricedItemsCount: '?',
+          overallVerdict: 'Analysis complete — see full narrative below.'
+        },
+        lineItems: [], missingItems: [], recommendations: [], sequencingIssues: [],
+        narrative: raw
+      };
+    }
+
+    lastReport = report;
+    renderReport(report, lastMeta);
+
+  } catch(err) {
+    alert('Analysis failed: ' + err.message + '\n\nMake sure your ANTHROPIC_API_KEY is set in Netlify environment variables and redeploy.');
+    document.getElementById('empty-state').style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg> Run AI Analysis';
+  prog.style.display = 'none';
+}
+
+// ── RENDER REPORT ──────────────────────────────
+function renderReport(r, m) {
+  const s = r.summary || {};
+  const riskColor = { Low:'sv-green', Medium:'sv-amber', High:'sv-red', Critical:'sv-red' };
+
+  // Header
+  document.getElementById('rpt-title').textContent = 'RehabScope™ — ' + (m.address || 'Property Review');
+  document.getElementById('rpt-meta').textContent  = [m.client, m.type, m.sqft ? m.sqft+' sq ft' : '', m.pkg, new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})].filter(Boolean).join(' · ');
+
+  // Scores
+  document.getElementById('score-grid').innerHTML = `
+    <div class="score-card"><div class="score-val sv-white">${s.contractorBid||'—'}</div><div class="score-lbl">Contractor Bid</div></div>
+    <div class="score-card"><div class="score-val sv-amber">${s.estimatedRealisticBudget||'—'}</div><div class="score-lbl">Realistic Budget</div></div>
+    <div class="score-card"><div class="score-val sv-red">${s.missingItemsCount??'—'}</div><div class="score-lbl">Missing Items</div></div>
+    <div class="score-card"><div class="score-val ${riskColor[s.riskLevel]||'sv-white'}">${s.riskLevel||'—'}</div><div class="score-lbl">Risk Level</div></div>`;
+
+  const secs = document.getElementById('sections');
+  secs.innerHTML = '';
+
+  // ── Summary ──
+  secs.innerHTML += `
+    <div class="sec-card fade">
+      <div class="sec-head" onclick="toggle(this)">
+        <div class="sec-icon" style="background:rgba(232,160,32,0.12);color:var(--amber);">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <span class="sec-title">Executive Summary</span>
+        <span class="sec-badge bd-amber">${s.riskLevel||''} Risk</span>
+        <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      </div>
+      <div class="sec-body open">
+        <div class="sum-box">
+          <div class="sum-row"><span class="sum-lbl">Contractor's Bid</span><span class="sum-val">${s.contractorBid||'—'}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Realistic Budget Estimate</span><span class="sum-val amber">${s.estimatedRealisticBudget||'—'}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Budget Variance</span><span class="sum-val red">${s.budgetVariance||'—'}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Missing Items Found</span><span class="sum-val red">${s.missingItemsCount??'—'}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Overpriced Items</span><span class="sum-val amber">${s.overPricedItemsCount??'—'}</span></div>
+          <div class="sum-row"><span class="sum-lbl">Underpriced Items</span><span class="sum-val">${s.underPricedItemsCount??'—'}</span></div>
+        </div>
+        <div class="verdict-box"><strong>Verdict:</strong> ${s.overallVerdict||'—'}</div>
+      </div>
+    </div>`;
+
+  // ── Line Items ──
+  if (r.lineItems && r.lineItems.length) {
+    const stColor = st => ({ Reasonable:'bd-green', Overpriced:'bd-red', Underpriced:'bd-amber', Missing:'bd-red' }[st]||'bd-gray');
+    const rows = r.lineItems.map(li => `
+      <tr>
+        <td class="td-item">${li.item}</td>
+        <td class="td-num">${li.bidAmount||'—'}</td>
+        <td class="td-num">${li.marketLow||'—'}</td>
+        <td class="td-num">${li.marketHigh||'—'}</td>
+        <td><span class="st-badge ${stColor(li.status)}">${li.status}</span></td>
+        <td class="td-note">${li.flag||''}</td>
+      </tr>`).join('');
+    secs.innerHTML += `
+      <div class="sec-card fade">
+        <div class="sec-head" onclick="toggle(this)">
+          <div class="sec-icon" style="background:var(--blue-lt);color:var(--blue);">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </div>
+          <span class="sec-title">Line Item Price Analysis</span>
+          <span class="sec-badge bd-blue">${r.lineItems.length} items reviewed</span>
+          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="sec-body open">
+          <table class="li-table">
+            <thead><tr>
+              <th>Line Item</th><th>Bid</th><th>Mkt Low</th><th>Mkt High</th><th>Status</th><th>Notes</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  // ── Missing Items ──
+  if (r.missingItems && r.missingItems.length) {
+    const items = r.missingItems.map(mi => `
+      <div class="miss-item">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          <div class="miss-title">${mi.item} ${mi.estimatedCost ? '<span style="font-weight:600;margin-left:8px;">Est. ' + mi.estimatedCost + '</span>' : ''}</div>
+          <div class="miss-detail">${mi.reason||''}</div>
+        </div>
+      </div>`).join('');
+    secs.innerHTML += `
+      <div class="sec-card fade">
+        <div class="sec-head" onclick="toggle(this)">
+          <div class="sec-icon" style="background:var(--red-lt);color:var(--red);">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <span class="sec-title">Missing Scope Items</span>
+          <span class="sec-badge bd-red">${r.missingItems.length} found</span>
+          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="sec-body open">${items}</div>
+      </div>`;
+  }
+
+  // ── Sequencing Issues ──
+  if (r.sequencingIssues && r.sequencingIssues.length) {
+    const items = r.sequencingIssues.map(si => `
+      <div class="seq-item">
+        <div class="seq-issue">${si.issue}</div>
+        <div class="seq-impact">${si.impact||''}</div>
+      </div>`).join('');
+    secs.innerHTML += `
+      <div class="sec-card fade">
+        <div class="sec-head" onclick="toggle(this)">
+          <div class="sec-icon" style="background:rgba(232,160,32,0.12);color:var(--amber-dk);">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          </div>
+          <span class="sec-title">Sequencing Issues</span>
+          <span class="sec-badge bd-amber">${r.sequencingIssues.length} found</span>
+          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="sec-body open">${items}</div>
+      </div>`;
+  }
+
+  // ── Recommendations ──
+  if (r.recommendations && r.recommendations.length) {
+    const items = r.recommendations.map((rec,i) => `
+      <div class="rec-item ${(rec.priority||'low').toLowerCase()}">
+        <div class="rec-num">${i+1}</div>
+        <div>
+          <div class="rec-text">${rec.recommendation}</div>
+          <div class="rec-why">${rec.why||''}</div>
+        </div>
+      </div>`).join('');
+    secs.innerHTML += `
+      <div class="sec-card fade">
+        <div class="sec-head" onclick="toggle(this)">
+          <div class="sec-icon" style="background:var(--green-lt);color:var(--green);">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <span class="sec-title">Recommendations</span>
+          <span class="sec-badge bd-green">${r.recommendations.length} actions</span>
+          <svg class="chevron open" width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="sec-body open">${items}</div>
+      </div>`;
+  }
+
+  // Narrative
+  document.getElementById('narrative').textContent = r.narrative || '';
+
+  document.getElementById('report-area').style.display = 'block';
+  document.getElementById('approve-bar').classList.add('show');
+  document.getElementById('report-area').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── GENERATE CLIENT REPORT ─────────────────────
+function generateReport() {
+  const btn = document.getElementById('approve-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⏳</span> Building Report...';
+
+  const r         = lastReport;
+  const m         = lastMeta;
+  const narrative = document.getElementById('narrative').innerText.trim();
+  const s         = r.summary || {};
+  const date      = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+  const riskColors = { Low:'#2D7A4F', Medium:'#B8860B', High:'#C0392B', Critical:'#7B0000' };
+  const riskC = riskColors[s.riskLevel] || '#2C3A4A';
+
+  // Status badge helper
+  function stBadge(st) {
+    const map = {
+      Reasonable: ['#E8F5EE','#2D7A4F'],
+      Overpriced:  ['#FDECEA','#C0392B'],
+      Underpriced: ['#FFF8E1','#B8860B'],
+      Missing:     ['#FDECEA','#C0392B']
+    };
+    const [bg,c] = map[st] || ['#F3F4F6','#6B7280'];
+    return '<span style="background:' + bg + ';color:' + c + ';border-radius:100px;padding:2px 10px;font-size:11px;font-weight:800;white-space:nowrap;">' + st + '</span>';
+  }
+
+  // Priority colors
+  function prioBg(p) {
+    return { High:'#FDECEA', Medium:'#FFF8E1', Low:'#E8F5EE' }[p] || '#F3F4F6';
+  }
+  function prioC(p) {
+    return { High:'#C0392B', Medium:'#B8860B', Low:'#2D7A4F' }[p] || '#6B7280';
+  }
+
+  // Line item rows
+  const lineRows = (r.lineItems||[]).map(li =>
+    '<tr>' +
+    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;font-weight:700;">' + li.item + '</td>' +
+    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:right;font-weight:700;">' + (li.bidAmount||'—') + '</td>' +
+    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:right;">' + (li.marketLow||'—') + '</td>' +
+    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:right;">' + (li.marketHigh||'—') + '</td>' +
+    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;text-align:center;">' + stBadge(li.status) + '</td>' +
+    '<td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;font-size:12px;color:#6B7280;">' + (li.flag||'') + '</td>' +
+    '</tr>'
+  ).join('');
+
+  // Missing items
+  const missingHTML = (r.missingItems||[]).map(mi =>
+    '<div style="background:#FDECEA;border-left:4px solid #C0392B;border-radius:6px;padding:12px 14px;margin-bottom:8px;">' +
+    '<div style="font-weight:800;font-size:13px;color:#7B241C;">' + mi.item + (mi.estimatedCost ? ' <span style="font-weight:600;color:#C0392B;">— Est. ' + mi.estimatedCost + '</span>' : '') + '</div>' +
+    '<div style="font-size:12px;color:#a05050;margin-top:4px;">' + (mi.reason||'') + '</div>' +
+    '</div>'
+  ).join('');
+
+  // Sequencing
+  const seqHTML = (r.sequencingIssues||[]).map(si =>
+    '<div style="background:#FFF8E1;border-left:4px solid #B8860B;border-radius:6px;padding:12px 14px;margin-bottom:8px;">' +
+    '<div style="font-weight:800;font-size:13px;color:#5D4037;">' + si.issue + '</div>' +
+    '<div style="font-size:12px;color:#8D6E63;margin-top:4px;">' + (si.impact||'') + '</div>' +
+    '</div>'
+  ).join('');
+
+  // Recommendations
+  const recHTML = (r.recommendations||[]).map((rec,i) =>
+    '<div style="background:' + prioBg(rec.priority) + ';border-left:4px solid ' + prioC(rec.priority) + ';border-radius:6px;padding:12px 14px;margin-bottom:8px;">' +
+    '<div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:' + prioC(rec.priority) + ';margin-bottom:4px;">' + (rec.priority||'') + ' Priority</div>' +
+    '<div style="font-weight:800;font-size:13px;color:#111;">' + rec.recommendation + '</div>' +
+    '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + (rec.why||'') + '</div>' +
+    '</div>'
+  ).join('');
+
+  // Narrative paragraphs
+  const narHTML = narrative.split(/\n+/).filter(p => p.trim()).map(p =>
+    '<p style="margin:0 0 16px 0;line-height:1.8;font-size:14px;color:#2C3A4A;">' + p + '</p>'
+  ).join('');
+
+  // Build the report HTML using string concatenation (no template literals = no parser issues)
+  const reportHTML =
+    '<!DOCTYPE html>' +
+    '<html lang="en"><head><meta charset="UTF-8"/>' +
+    '<title>RehabScope Report - ' + (m.address||'Property') + '</title>' +
+    '<style>' +
+    'body{font-family:Helvetica Neue,Helvetica,Arial,sans-serif;background:#fff;color:#111;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+    '.wrap{max-width:800px;margin:0 auto;padding:0 0 60px;}' +
+    'table{border-collapse:collapse;width:100%;}' +
+    'th{background:#2C3A4A;color:#fff;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:9px 10px;text-align:left;}' +
+    '.sh{background:#2C3A4A;color:#fff;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:9px 14px;border-radius:4px;margin:28px 0 12px;}' +
+    '.noprint{background:#111;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;}' +
+    '@media print{.noprint{display:none!important;}.pb{page-break-before:always;}}' +
+    '@page{margin:15mm 18mm;size:letter;}' +
+    '</style></head><body>' +
+    '<div class="noprint">' +
+    '<span style="color:#E8A020;font-weight:900;font-size:16px;">RehabScope&#8482; Report &#8212; Ready to Print</span>' +
+    '<div style="display:flex;gap:10px;">' +
+    '<button onclick="window.print()" style="background:#E8A020;color:#111;border:none;border-radius:8px;padding:10px 22px;font-weight:900;font-size:14px;cursor:pointer;">Print / Save as PDF</button>' +
+    '<button onclick="window.close()" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;">Close</button>' +
+    '</div></div>' +
+    '<div class="wrap">' +
+
+    // Cover
+    '<div style="background:#111;padding:32px 36px 28px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+    '<div>' +
+    '<div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:-.02em;">RehabScope<span style="color:#E8A020;">&#8482;</span></div>' +
+    '<div style="font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#94A3B8;margin-top:4px;">Independent Rehab Scope &amp; Budget Review</div>' +
+    '</div>' +
+    '<div style="text-align:right;">' +
+    '<div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E8A020;">' + (m.pkg||'') + '</div>' +
+    '<div style="font-size:11px;color:#94A3B8;margin-top:4px;">' + date + '</div>' +
+    '</div></div>' +
+    '<div style="height:3px;background:#E8A020;margin-top:24px;border-radius:2px;"></div>' +
+    '</div>' +
+
+    // Property info
+    '<div style="background:#F3F4F6;border-left:4px solid #E8A020;padding:18px 24px;">' +
+    '<div style="font-size:17px;font-weight:900;color:#111;margin-bottom:6px;">' + (m.address||'Property Address') + '</div>' +
+    '<div style="font-size:12px;color:#6B7280;display:flex;gap:24px;flex-wrap:wrap;">' +
+    '<span><strong>Client:</strong> ' + (m.client||'—') + '</span>' +
+    '<span><strong>Type:</strong> ' + (m.type||'—') + '</span>' +
+    '<span><strong>Size:</strong> ' + (m.sqft ? m.sqft+' sq ft' : '—') + '</span>' +
+    '<span><strong>Market:</strong> ' + (m.market||'—') + '</span>' +
+    '</div></div>' +
+
+    // Risk banner
+    '<div style="background:' + riskC + ';padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
+    '<div style="font-size:14px;font-weight:900;color:#fff;letter-spacing:.05em;">OVERALL RISK: ' + ((s.riskLevel||'MEDIUM').toUpperCase()) + '</div>' +
+    '<div style="font-size:12px;color:rgba(255,255,255,.85);max-width:420px;">' + (s.overallVerdict||'') + '</div>' +
+    '</div>' +
+
+    // Budget grid
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E5E7EB;">' +
+    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Contractor Bid</div><div style="font-size:18px;font-weight:900;color:#111;">' + (s.contractorBid||'—') + '</div></div>' +
+    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Realistic Budget</div><div style="font-size:18px;font-weight:900;color:#B8860B;">' + (s.estimatedRealisticBudget||'—') + '</div></div>' +
+    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Budget Variance</div><div style="font-size:18px;font-weight:900;color:#C0392B;">' + (s.budgetVariance||'—') + '</div></div>' +
+    '<div style="background:#fff;padding:16px;text-align:center;"><div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;margin-bottom:6px;">Missing Items</div><div style="font-size:18px;font-weight:900;color:#C0392B;">' + (s.missingItemsCount||'0') + '</div></div>' +
+    '</div>' +
+
+    // Line items
+    (lineRows ? '<div class="pb" style="margin-top:28px;"><div class="sh">Line Item Price Analysis</div><table><thead><tr><th style="width:28%;">Line Item</th><th style="width:13%;text-align:right;">Bid</th><th style="width:12%;text-align:right;">Mkt Low</th><th style="width:12%;text-align:right;">Mkt High</th><th style="width:13%;text-align:center;">Status</th><th>Notes</th></tr></thead><tbody>' + lineRows + '</tbody></table></div>' : '') +
+
+    // Missing items
+    (missingHTML ? '<div style="margin-top:28px;"><div class="sh" style="background:#C0392B;">Missing Scope Items &#8212; ' + (r.missingItems||[]).length + ' Found</div>' + missingHTML + '</div>' : '') +
+
+    // Sequencing
+    (seqHTML ? '<div style="margin-top:28px;"><div class="sh" style="background:#8D6E63;">Sequencing Issues</div>' + seqHTML + '</div>' : '') +
+
+    // Recommendations
+    (recHTML ? '<div style="margin-top:28px;"><div class="sh" style="background:#2D7A4F;">Recommendations</div>' + recHTML + '</div>' : '') +
+
+    // Narrative
+    '<div class="pb" style="margin-top:28px;">' +
+    '<div class="sh">RehabScope&#8482; Review Narrative</div>' +
+    '<div style="background:#FFFDF7;border:1.5px solid #E5E7EB;border-radius:8px;padding:24px 28px;">' + narHTML + '</div>' +
+    '</div>' +
+
+    // Footer
+    '<div style="margin-top:36px;border-top:2px solid #E5E7EB;padding-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+    '<div><div style="font-size:13px;font-weight:900;color:#111;">RehabScope<span style="color:#E8A020;">&#8482;</span> Independent Review</div><div style="font-size:11px;color:#6B7280;margin-top:2px;">taskrocketai@gmail.com</div></div>' +
+    '<div style="font-size:10px;color:#9CA3AF;text-align:right;max-width:320px;line-height:1.5;">This report is prepared for the exclusive use of the named client. RehabScope&#8482; provides independent scope and budget review for real estate investors.</div>' +
+    '</div>' +
+
+    '</div></body></html>';
+
+  const win = window.open('', '_blank', 'width=900,height=750');
+  if (!win) {
+    alert('Pop-up blocked. Please allow pop-ups for this page, then click Approve again.');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Approve &amp; Generate Client Report';
+    return;
+  }
+  win.document.write(reportHTML);
+  win.document.close();
+
+  btn.innerHTML = '&#10003; Report Generated!';
+  btn.style.background = '#d4edda';
+  btn.style.color = '#1D6A3A';
+  setTimeout(() => {
+    btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Approve &amp; Generate Client Report';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.disabled = false;
+  }, 3000);
+}
+
+// ── UTILITIES ──────────────────────────────────
+function copyFullReport() {
+  navigator.clipboard.writeText(document.getElementById('report-area').innerText)
+    .then(() => alert('Report copied to clipboard!'));
+}
+function copyNarrative() {
+  navigator.clipboard.writeText(document.getElementById('narrative').innerText)
+    .then(() => alert('Narrative copied!'));
+}
+function resetAll() {
+  document.getElementById('report-area').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'block';
+  document.getElementById('approve-bar').classList.remove('show');
+  document.getElementById('f-scope').value = '';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-bid').value   = '';
+  files = [];
+  renderFiles();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
