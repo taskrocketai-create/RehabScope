@@ -11,13 +11,10 @@ module.exports = async function(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: 'ANTHROPIC_API_KEY not configured in Vercel' } });
 
-  let body;
-  try { body = req.body; } 
-  catch(e) { return res.status(400).json({ error: { message: 'Bad request body' } }); }
-
+  const body = req.body;
   const payload = JSON.stringify({
     model:      'claude-sonnet-4-6',
-    max_tokens: 1500,
+    max_tokens: 4000,
     messages:   body.messages
   });
 
@@ -58,9 +55,9 @@ module.exports = async function(req, res) {
       resolve();
     });
 
-    request.setTimeout(55000, () => {
+    request.setTimeout(58000, () => {
       request.destroy();
-      res.status(504).json({ error: { message: 'Timed out after 55s' } });
+      res.status(504).json({ error: { message: 'Timed out after 58s' } });
       resolve();
     });
 
