@@ -559,55 +559,19 @@ async function runAnalysis() {
   setStep(4); await delay(600);
   setStep(5);
 
-  const prompt = `You are a senior construction cost estimator and rehab scope reviewer with 20+ years of US residential real estate investment experience.
+  const prompt = `Analyze this contractor bid. Respond ONLY with a JSON object, nothing else.
 
-PROJECT DETAILS:
-- Client: ${client || 'Not provided'}
-- Property: ${address}
-- Type: ${type || 'Not specified'}
-- Size: ${sqft ? sqft + ' sq ft' : 'Not provided'}
-- Contractor Bid: ${bid}
-- Market: ${market || 'National'}
-- Package: ${pkg}
+Property: ${address}, ${type||''}, ${sqft||''}sqft, ${market||'US'} market
+Contractor Bid: ${bid}
+Package: ${pkg}
 
-CONTRACTOR SCOPE / BID:
-${scope}
+SCOPE:
+${scope.slice(0,2000)}
 
-${notes ? 'ADDITIONAL CONTEXT:\n' + notes : ''}
+${notes ? 'CONTEXT: ' + notes.slice(0,500) : ''}
 
-CRITICAL RULES:
-- Your ENTIRE response must be ONE valid JSON object
-- Start with { and end with }
-- No text before or after the JSON
-- No markdown code blocks
-
-{
-  "summary": {
-    "contractorBid": "${bid}",
-    "estimatedRealisticBudget": "realistic range e.g. $55,000 - $70,000",
-    "budgetVariance": "e.g. +$16,500 to +$31,500",
-    "riskLevel": "Low | Medium | High | Critical",
-    "missingItemsCount": 0,
-    "overPricedItemsCount": 0,
-    "underPricedItemsCount": 0,
-    "overallVerdict": "One clear sentence verdict on this bid"
-  },
-  "lineItems": [
-    {"item": "item name", "bidAmount": "$X,XXX", "marketLow": "$X,XXX", "marketHigh": "$X,XXX", "status": "Reasonable | Overpriced | Underpriced | Missing", "flag": "brief note"}
-  ],
-  "missingItems": [
-    {"item": "missing item", "estimatedCost": "$X,XXX - $X,XXX", "reason": "why required"}
-  ],
-  "recommendations": [
-    {"priority": "High | Medium | Low", "recommendation": "specific action", "why": "explanation"}
-  ],
-  "sequencingIssues": [
-    {"issue": "problem description", "impact": "cost or timeline impact"}
-  ],
-  "narrative": "Write 3-4 paragraphs as the expert reviewer addressing the investor directly. Cover: what you found, key concerns, revised budget estimate, and clear next steps. Professional but plain language."
-}
-
-Use real national pricing data for ${market || 'US'} ${type || 'residential'} properties. Be thorough — flag everything that matters.`;
+Return this JSON structure only:
+{"summary":{"contractorBid":"${bid}","estimatedRealisticBudget":"$X-$Y","budgetVariance":"+$X","riskLevel":"High","missingItemsCount":0,"overPricedItemsCount":0,"underPricedItemsCount":0,"overallVerdict":"one sentence"},"lineItems":[{"item":"name","bidAmount":"$X","marketLow":"$X","marketHigh":"$X","status":"Reasonable","flag":"note"}],"missingItems":[{"item":"name","estimatedCost":"$X-$Y","reason":"why"}],"recommendations":[{"priority":"High","recommendation":"action","why":"reason"}],"sequencingIssues":[{"issue":"problem","impact":"consequence"}],"narrative":"3 paragraphs: findings, budget concerns, next steps."}`;
 
   try {
     const res = await fetch('/api/analyze', {
