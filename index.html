@@ -705,6 +705,17 @@ function toggle(head) {
 
 // ── RUN ANALYSIS ───────────────────────────────
 async function runAnalysis() {
+  // Check for API key
+  if (!window._rsKey) {
+    const key = localStorage.getItem('rs_api_key') || prompt('Enter your Anthropic API key (sk-ant-...):\n\nThis is stored only in your browser and never sent to any server except Anthropic directly.');
+    if (!key || !key.startsWith('sk-ant-')) {
+      alert('A valid Anthropic API key is required. It should start with sk-ant-');
+      return;
+    }
+    window._rsKey = key;
+    localStorage.setItem('rs_api_key', key);
+  }
+
   // Collect all form fields
   const client      = document.getElementById('f-client').value.trim();
   const market      = document.getElementById('f-market').value.trim();
@@ -785,10 +796,18 @@ Return this exact JSON (keep responses brief to fit in token limit):
 {"summary":{"contractorBid":"${bid}","estimatedRealisticBudget":"$X-$Y","budgetVariance":"+$X to +$Y","riskLevel":"High","missingItemsCount":5,"overPricedItemsCount":2,"underPricedItemsCount":1,"overallVerdict":"One sentence verdict."},"lineItems":[{"item":"Demo","bidAmount":"$1,800","marketLow":"$1,500","marketHigh":"$2,500","status":"Reasonable","flag":"OK for scope"}],"missingItems":[{"item":"Roof inspection","estimatedCost":"$8,000-$12,000","reason":"1987 roof unknown condition"}],"recommendations":[{"priority":"High","recommendation":"Get roof inspection before closing","why":"Unknown condition on 37yr old roof"}],"sequencingIssues":[{"issue":"Paint before flooring","impact":"Risk of damage"}],"narrative":"Para 1: overall verdict. Para 2: line item findings. Para 3: missing items and risks. Para 4: next steps."}`;
 
   try {
-    const res = await fetch('/api/analyze', {
+    // Call Anthropic API directly from browser (no server timeout limits)
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': window._rsKey || '',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }]
       })
     });
