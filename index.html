@@ -547,9 +547,9 @@
       <div class="fg">
         <label>Package *</label>
         <select id="f-pkg">
-          <option>RehabScope™ Review</option>
-          <option selected>RehabScope™ Pro</option>
-          <option>RehabScope™ Elite</option>
+          <option>RehabScope™ Review — $595</option>
+          <option selected>RehabScope™ Pro — $995</option>
+          <option>RehabScope™ Elite — $1,750</option>
         </select>
       </div>
     </div>
@@ -670,11 +670,44 @@ let files   = [];
 let lastReport = null;
 let lastMeta   = null;
 
-// Auto-load saved API key on page load
+// Auto-load saved API key and pre-fill from landing page
 window.addEventListener('DOMContentLoaded', () => {
+  // Load saved API key
   const saved = localStorage.getItem('rs_api_key');
   const inp   = document.getElementById('api-key-input');
   if (saved && inp) inp.value = saved;
+
+  // Pre-fill form from landing page submission
+  const prefill = sessionStorage.getItem('rs_prefill');
+  if (prefill) {
+    try {
+      const d = JSON.parse(prefill);
+      sessionStorage.removeItem('rs_prefill'); // clear after use
+
+      const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      set('f-client',    d.client);
+      set('f-market',    d.market);
+      set('f-address',   d.address);
+      set('f-type',      d.type);
+      set('f-sqft',      d.sqft);
+      set('f-year',      d.year);
+      set('f-condition', d.condition);
+      set('f-purchase',  d.purchase);
+      set('f-arv',       d.arv);
+      set('f-bid',       d.bid);
+      set('f-pkg',       d.pkg ? d.pkg.split('—')[0].trim() : '');
+      set('f-scope',     d.scope);
+      set('f-notes',     d.notes);
+
+      // Show a welcome banner
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:var(--green);color:#fff;padding:0.85rem 1.25rem;border-radius:10px;font-size:0.88rem;font-weight:700;margin-bottom:1rem;';
+      banner.textContent = '✓ Form pre-filled from your submission. Review the details and click Run AI Analysis.';
+      const panel = document.querySelector('.input-panel');
+      if (panel) panel.insertBefore(banner, panel.firstChild);
+
+    } catch(e) { console.log('Pre-fill error:', e); }
+  }
 });
 
 // ── FILE HANDLING ──────────────────────────────
